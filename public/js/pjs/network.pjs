@@ -1,0 +1,188 @@
+color[] colors = new color[12];
+
+colors[0] = color(171, 199, 49);
+colors[1] = color(162, 195, 85);
+colors[2] = color(154, 191, 123);
+colors[3] = color(147, 186, 161);
+colors[4] = color(141, 181, 200);
+colors[5] = color(134, 162, 169);
+colors[6] = color(128, 142, 137);
+colors[7] = color(122, 122, 104);
+colors[8] = color(177, 102, 73);
+colors[9] = color(131, 127, 67);
+colors[10] = color(144, 150, 60);
+colors[11] = color(157, 175, 55);
+
+PFont defaultFont = loadFont("/fonts/GraublauWeb-Regular.svg");
+PFont boldFont = loadFont("/fonts/GraublauWeb-Bold.svg");
+int fontSize = 11.3;
+int fontSizeCaption = 16;
+
+int nodeCount = 0;
+
+Resource fetchResource(String resourceId) {
+  // init dummy resource
+  Resource resource = new Resource(resourceId, "", "");
+	resource.idx = nodeCount;
+  nodeCount++;
+  resource.fetchData(); // start fetching data from freebase
+	return resource;
+}
+
+Graph g;
+Resource r;
+
+float NODE_SIZE = 10;
+float EDGE_LENGTH = 20;
+float EDGE_STRENGTH = 0.2;
+float SPACER_STRENGTH = 1000;
+
+int selectedValueIndex;
+int selectedNodeIndex;
+
+void resize() {
+	size(window.innerWidth-10, window.innerHeight-15);
+}
+
+void setup() {	
+	g = new Graph();
+	// Activate font for output
+	textFont(defaultFont, fontSize);
+
+  resize();
+  fill(0);
+  smooth();
+  frameRate(30);
+	background(234,239,224);
+
+	if (resourceId) {
+		r = fetchResource(resourceId);
+		
+		
+		g.addNode(root = new Node(r));
+		g.setSelectedNode(root);
+		$('aside').html(r.html);
+	}
+}
+
+void draw() {
+  if (g.nodes.size()>0) {
+    g.tick();
+    background(234,239,224);
+    g.draw();
+  }
+}
+
+void mouseMoved() {
+	if (!resourceId) return;
+	
+	if (g.getDragNode()==null) {
+		Resource r = g.getSelectedNode().getSubject();
+		ArrayList values = r.getValues();
+		Attribute oldSelectedAttribute = r.getSelectedAttribute();
+		int oldValueIndex = selectedValueIndex;
+		selectedValueIndex = null;
+		
+		// Iterate over values
+		for (int i = 0; i < values.size(); i++) {
+			if (values[i].mouseOver()) {
+				selectedValueIndex = i;
+			}
+		}
+		
+		if (selectedValueIndex!=null) {
+			if (oldSelectedAttribute != r.getSelectedAttribute()) {								
+				float offset = 0;
+				if (selectedValueIndex != null) {
+					
+					if (r.previousSelectedAttribute!=null) r.previousSelectedAttribute.weight = 1.0;
+					r.selectedAttribute.weight = 4.0;
+					// r.transitioning = true;
+					float targetAngle = (values[selectedValueIndex].angleStart +values[selectedValueIndex].angleStop) / 2;
+					if (oldSelectedAttribute!=null) oldSelectedAttribute.targetWeight = 1.0;
+					r.getSelectedAttribute().targetWeight = 4.0;
+					
+					r.update();
+					currentAngle = (r.getValues()[selectedValueIndex].angleStart +r.getValues()[selectedValueIndex].angleStop) / 2
+					
+					offset = targetAngle-currentAngle;
+					float targetAdjustment = r.angleAdjustment+offset;
+					if (targetAdjustment<0) {
+						targetAdjustment = TWO_PI - targetAdjustment;
+					}
+					r.setAngleAdjustment(targetAdjustment);
+				}				
+			}
+		}
+		
+		if (selectedValueIndex==null && r.selectedAttribute!=null) {
+			// r.selectedAttribute.weight = 1.0;
+			// r.setSelectedAttribute(null);
+		}
+		
+		selectedNodeIndex = null;
+		// Iterate over nodes
+		for (int i=0; i< g.nodes.size(); i++) {
+			if (g.nodes[i].mouseOver()) {
+				selectedNodeIndex = i;
+			}
+		}
+	}
+}
+
+void mousePressed() {
+	if (!resourceId) return;
+  if (mouseButton == LEFT) {
+		Node selectedNode = g.getSelectedNode();
+		Resource r = selectedNode.getSubject();
+		
+		if (selectedValueIndex != null) {
+			// Close current resource
+			r.setClosed();
+			r2 = fetchResource(r.getValues()[selectedValueIndex].getId());
+			
+			// Check if resource already exists
+	    int i = 0; Node n = null;
+	    while (i < g.nodes.size() && !n) {
+				if (g.nodes[i].getSubject().getId()==r2.getId())
+					n = g.nodes[i];
+	      i++;
+	    }
+
+	    if (!n) {
+				g.addNode(newNode = new Node(r2));
+				g.addEdge(new Edge(selectedNode, newNode));
+				g.setSelectedNode(newNode);
+				
+			} else {
+				g.addEdge(new Edge(selectedNode, n));
+				g.setSelectedNode(g.nodes[0]);
+			}
+			
+		} else if (selectedNodeIndex != null) {
+			// TODO: Zoom to node
+			selectedNode = g.nodes[selectedNodeIndex];
+			g.setDragNode(selectedNode);
+			if (g.getSelectedNode()!=selectedNode) {
+  			r.setClosed();
+  			selectedNode.getSubject().setOpen();
+  			$('aside').html(selectedNode.getSubject().html);
+  			g.setSelectedNode(selectedNode);
+			}
+		}
+				
+  } else { // Right click
+		Node selectedNode = g.getSelectedNode();
+		Resource r = selectedNode.getSubject();
+	}
+}
+
+void mouseReleased() {
+  g.setDragNode(null);
+}
+
+void mouseDragged() {
+  if (g.getDragNode() != null) {
+    g.getDragNode().setPos(mouseX, mouseY, 0);
+  }
+}

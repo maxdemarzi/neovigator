@@ -1,0 +1,104 @@
+/***************************************************************
+/* Attribute
+/**************************************************************/
+
+public class Attribute {
+  String id = "";
+  String name = "";
+	
+	float x;
+	float y;
+	
+	float angleStart;
+  float angleStop;
+
+	float targetWeight = 1.0;
+	float weight = 1.0;
+	float direction = 1;
+	float speed = 0.3;
+
+	color col;
+	boolean hovering = false;
+	Resource resource;
+	
+  ArrayList values = new ArrayList();
+
+  public Attribute(String label, Resource resource) {
+    this.label = label;
+		this.name = label;
+		this.resource = resource;
+  }
+
+	public void setPos(float x, float y) {
+		this.x = x;
+		this.y = y;
+	}
+	
+	public void setAngles(float angleStart, float angleStop) {
+		this.angleStart = angleStart;
+		this.angleStop = angleStop;
+	}
+	
+	public void setCol(color col) {
+		this.col = col;
+	}
+	
+	public void setHovering(boolean hover) {
+		this.hovering = hover;
+	}
+	
+	public boolean isHovering() {
+		return this.hovering;
+	}
+
+  public String getLabel() {
+    return this.label;
+  }
+
+  public String getName() {
+    return this.name;
+  }
+
+	public void update() {
+		if (weight>targetWeight-0.1 && weight<targetWeight+0.1) {
+			
+		} else {
+			if (targetWeight<weight)
+				direction = -1;
+			else
+				direction = 1;
+			weight += speed*direction;
+		}
+	}
+
+  public void draw() {
+		float radius = this.resource.radius;
+		fill(col);
+        
+		textFont(defaultFont, 45);
+    if (this==resource.selectedAttribute && !resource.isTransitioning()) {
+     textFont(defaultFont, 45);
+     text(resource.selectedAttribute.getValues().size()+"", resource.x-50, resource.y-80, 100);
+     textFont(defaultFont, 13);
+     
+     text("Resources", resource.x-50, resource.y-30, 100);
+     textFont(defaultFont, 18);
+     text(this.getName(), resource.x-50, resource.y+10, 100);
+     
+     fill(col);
+    }
+		textFont(defaultFont, fontSize);
+  }
+
+  public void addValue(Value val) {
+    values.add(val);
+  }
+
+	public ArrayList getValues() {
+		return values;
+	}
+	
+	public Resource getResource() {
+		return resource;
+	}
+}

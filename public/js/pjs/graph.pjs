@@ -1,0 +1,167 @@
+/***************************************************************
+/* Spring
+/**************************************************************/
+
+// Usage
+// ===========
+// Graph g;
+// Resource r;
+// g.addNode(enterprise = new Node("enterprise", "Enterprise"));
+// g.addNode(earth = new Node("earth", "Earth"));
+// g.addNode(kirk = new Node("kirk", "Kirk"));
+// g.addNode(spock = new Node("spock", "Spock"));
+// 
+// g.addEdge(new Edge(universe, enterprise));
+// g.addEdge(new Edge(enterprise, kirk));
+// g.addEdge(new Edge(enterprise, spock));
+// g.addEdge(new Edge(universe, earth));
+// g.addEdge(new Edge(earth, kirk));
+
+class Graph {
+  ArrayList nodes;
+  ArrayList edges;
+	ParticleSystem ps;
+	Node selectedNode;
+	
+	Node dragNode;
+
+	float NODE_SIZE = 70;
+	float EDGE_LENGTH = 190;
+	float EDGE_STRENGTH = 0.5;
+	float SPACER_STRENGTH = 1000;
+	
+  public Graph() {
+    nodes = new ArrayList();
+  	edges = new ArrayList();
+
+    // Zero gravity, mid-to-low drag
+		ps = new ParticleSystem(0, 0, 0, 0.1);
+		ps.setDrag( 0.2 );
+	}
+  
+	public void setSelectedNode(Node sNode) {
+		this.selectedNode = sNode;
+	}
+	
+	public Node getSelectedNode() {
+		return this.selectedNode;
+	}
+	
+	public void setDragNode(Node n) {
+	  if (this.dragNode != null) {
+	    this.dragNode.setDragging(false);
+	  }
+	  this.dragNode = n;
+	  if (n != null)
+	    n.setDragging(true);
+	}
+	
+	public Node getDragNode() {
+	  return this.dragNode;
+	}
+
+  public void addEdge(Edge e) {
+    // Edge exists?
+    int i = 0; boolean found = false;
+    while (i < edges.size() && !found) {
+      found = ((edges.get(i).getFrom() == e.getFrom() && (edges.get(i)).getTo() == e.getTo()) || (edges.get(i).getFrom() == e.getTo() && (edges.get(i)).getTo() == e.getFrom()));
+      i++;
+    }
+
+    if (!found) {
+      edges.add(e);
+			// Add a spring
+			ps.makeSpring( e.getFrom().getParticle(), e.getTo().getParticle(), EDGE_STRENGTH, EDGE_STRENGTH, EDGE_LENGTH );
+			e.getTo().getParticle().position().set( e.getFrom().getParticle().position().x + random( -1, 1 ), e.getFrom().getParticle().position().y + random( -1, 1 ), 0 );
+		}
+  }
+
+  public void addNode(Node n) {
+		// TODO: Don't allow duplicates
+    n.setGraph(this);
+		nodes.add(n);
+		
+	  for ( int i = 0; i < nodes.size(); i++ )
+	  {
+			 if (n!=nodes[i])
+			 	ps.makeAttraction( n.getParticle(), nodes[i].getParticle(), -SPACER_STRENGTH, 15 );
+	  }
+    
+  }
+  
+  public ArrayList getOutgoingEdges(Node n) {
+    ArrayList outgoingEdges = new ArrayList();
+    for (int i=0; i < edges.size(); i++) {
+      Edge e = (Edge)edges.get(i);
+      if (e.getFrom() == n)
+        outgoingEdges.add(e);
+    }
+    return outgoingEdges;
+  }
+  
+  public ArrayList getIncomingEdges(Node n) {
+    ArrayList incomingEdges = new ArrayList();
+    for (int i=0; i < edges.size(); i++) {
+      Edge e = (Edge)edges.get(i);
+      if (e.getTo() == n)
+        incomingEdges.add(e);
+    }
+    return incomingEdges;
+  }
+	
+	public void unVisitNodes() {
+		for(int i = 0; i < nodes.size(); i++) {
+			nodes.get(i).setVisited(false);
+		}
+	}
+
+	public void depthFirstWalk(Node n, ArrayList result) {		
+		if (!result) {
+			result = new ArrayList();
+			unVisitNodes();
+		}
+		
+		if (!n.isVisited()) {
+			n.setVisited(true);
+			result.add(n);
+		}
+		
+		ArrayList edges = n.getOutgoingEdges();
+		for(int i = 0; i < edges.size(); i++) {
+			if (!edges.get(i).getTo().isVisited())
+				depthFirstWalk(edges.get(i).getTo(), result);
+		}
+		
+    return result;
+	}
+	
+	// Drawing stuff
+	// *******************************************************************
+	
+	public void tick() {
+    ps.tick(1.0);
+  }
+
+	public void draw() {
+		Arraylist nodeList = this.depthFirstWalk(nodes[0]);
+
+
+		// Draw edges
+    for ( int i = 0; i < edges.size(); i++ ) {
+         Edge e = edges.get(i);
+         stroke(255);
+         strokeWeight(10);
+         
+         line(e.getFrom().getParticle().position().x, e.getFrom().getParticle().position().y, e.getTo().getParticle().position().x, e.getTo().getParticle().position().y)
+    }
+
+		// Draw nodes
+		for (int i=0; i < nodeList.size(); i++) {
+			if (nodeList[i]!=selectedNode)
+				nodeList[i].draw();
+		}
+		
+		selectedNode.draw();
+
+  }
+}

@@ -1,0 +1,421 @@
+/***************************************************************
+/* Resource
+/**************************************************************/
+
+
+// easing function
+
+function easeInOutCubic(pos) {
+  if ((pos/=0.5) < 1) return 0.5*Math.pow(pos,3);
+  return 0.5 * (Math.pow((pos-2),3) + 2);
+}
+
+public class Resource {
+  boolean selected = false;
+  boolean hovering = false;
+  boolean dragging = false;
+	boolean transitioning = false;
+	boolean loading = true;
+
+	String state = "open"
+	float theta = 0; // for spinning animation
+
+	int tweenDuration = 15; // in frames
+	int frameCount = 0;
+	
+	boolean loading = true;
+
+	float targetWeight = 1.0;
+	float highlightedWeight = 4.0;
+	
+	float diameter = 10;
+
+	Attribute selectedAttribute = null;
+	Attribute previousSelectedAttribute = null;
+		
+	float angleAdjustment = PI/2;
+
+  boolean open = true;
+	int numValues = 0;
+	
+	int idx = 0;
+	
+  int myColor = color(255);
+  int myStrokeWeight = 1;
+  int myStrokeColor = color(100);
+  int myFillColor = color(200);
+
+	float x;
+	float y;
+
+  // internals
+  ArrayList attributes;
+
+  int radius = 40;
+  float radiusOuter = 110;
+  float targetRadiusOuter = 110;
+  
+  
+  float radiusClosed = 40;
+  int n = 40;
+  float angle = 0;
+
+  String id = "";
+  String name = "";
+  String html = "";
+
+  public Resource(String id, String name, String html) {
+		this.attributes = new ArrayList();
+		this.id = id;
+    this.name = name;
+    this.html = html;
+  }
+  
+  public void fetchData() {
+    
+    var json;
+    var that = this;
+    
+    this.loading = true;
+    
+  	$.ajax({
+  		async: true,
+      type: "GET",
+      url: "/resources/show",
+  		data: {id: that.id},
+      dataType: 'json',
+      success: function(response) {
+    
+        // apply fetched data
+        that.id = response.data.id;
+        that.name = response.data.name;
+        that.html = response.details_html;
+        
+        int numValues = 0;
+        for (int i = 0 ; i < response.data.attributes.length(); i++) {
+         Attribute attr = new Attribute(response.data.attributes[i].name, that);
+         
+         for (int j = 0; j < response.data.attributes[i].values.length(); j++) {
+           attr.addValue(new Value(response.data.attributes[i].values[j].id, response.data.attributes[i].values[j].name, attr));
+           numValues++;
+         }
+         that.addAttribute(attr);
+        }
+        
+        that.numValues = numValues;
+        that.loading = false;
+        that.radiusOuter = 40;
+        that.targetRadiusOuter = 110;
+        that.frameCount = 0;
+        
+        $('aside').html(g.getSelectedNode().getSubject().html);
+      },
+      error: function() {
+        that.loading = false;
+      }
+    });
+  }
+  
+  public boolean isTransitioning() {
+    return (frameCount<tweenDuration);
+  }
+
+	public void setPos(float x, float y) {
+		this.x = x;
+		this.y = y;
+	}
+
+	public void setAngleAdjustment(float angleAdjustment) {
+		this.angleAdjustment = angleAdjustment;
+	}
+
+	public void setSelectedAttribute(attr) {
+		this.previousSelectedAttribute = this.selectedAttribute;
+		this.selectedAttribute = attr;
+	}
+	
+	public Attribute getSelectedAttribute() {
+		return this.selectedAttribute;
+	}
+	
+	public setRadiusOuter(float radiusOuter) {
+		this.radiusOuter = radiusOuter;
+	}
+	
+	public float getRadiusOuter() {
+		return this.radiusOuter;
+	}
+	
+	public float getRadius() {
+		return this.radius;
+	}
+
+	public String getId() {
+		return this.id;
+	}
+
+  public String getName() {
+    return this.name;
+  }
+
+  public void setFill(color c) {
+    this.myColor = c; 
+  }
+
+  public void setStroke(int weight, color c) {
+    this.myStrokeWeight = weight;
+    this.myStrokeColor = c;
+  }
+
+  public void setClosed() {
+    this.state = "closed";
+  }
+  
+  public void setOpen() {
+    if (this.state != "open") {
+      this.state = "open";
+      this.radiusOuter = 40;
+      this.targetRadiusOuter = 110;
+      this.frameCount = 0;
+    }
+  }
+  
+  public void setState(state) {
+    this.state = state;
+  }
+
+  public String getId() {
+    return id;
+  }
+
+  public String getType() {
+    return this.type; 
+  }
+
+	public void setNumValues(int numValues) {
+		this.numValues = numValues;
+	}
+
+	public void update() {
+		float angleStart = angleAdjustment;
+		float angleStop = angleAdjustment;
+		
+		var selectedAttributeCount = 0;
+		
+		if (selectedAttribute!= null)
+			selectedAttributeCount = selectedAttribute.values.size();
+			
+		float totalWeight = 0;
+		for (int i=0; i < attributes.size(); i++) {
+			totalWeight += attributes[i].weight*attributes[i].getValues().size();
+		}
+		
+		for (int i = 0 ; i < attributes.size(); i++) {
+			Attribute attribute = attributes[i];
+			ArrayList values = attribute.getValues();
+			
+			attribute.setPos(this.x+cos(angle)*radius, this.y+sin(angle)*radius)
+			attribute.setCol(colors[i%12]);
+						
+			float angleOuterStart = angleStop;
+			float angleOuterStop = angleStop;
+			
+			for (int j = 0; j < values.size(); j++) {
+				// outer orbit
+				angleOuterStart = angleOuterStop;
+				
+				// calculate dependent on weight (selected attributes have more weight)
+				float weight = 1;
+				if (selectedAttribute!= null && selectedAttribute==attribute) {
+					weight = highlightedWeight;
+				}
+				angleOuterStop += (attribute.weight * TWO_PI / totalWeight);
+								
+				values[j].setAngles(angleOuterStart, angleOuterStop);
+				values[j].idx = j;
+			}
+		
+			// calculate dimension
+			percentage = values.size() / numValues;
+			angleStart = angleStop;
+			angleStop = angleOuterStop;
+			
+			attribute.setAngles(angleStart, angleStop);
+			attribute.setCol(colors[i%12]);
+		}
+		
+		if (loading)
+		  this.theta = (this.theta+0.07)%TWO_PI // update theta for loading animation
+		  
+    // tweening fun
+		if (isTransitioning()) {
+		  frameCount++;
+		  radiusOuter = radiusOuter + ((targetRadiusOuter - radiusOuter) * easeInOutCubic(frameCount/tweenDuration));
+		}
+	}
+
+  void setSelected(boolean b) {
+    selected = b;
+  }
+
+	public boolean isSelected() {
+		return hovering;
+	}
+
+  void setHovering(boolean b) {
+    hovering = b;
+  }
+
+	public boolean isHovering() {
+		return hovering;
+	}
+
+  void setDragging(boolean b) {
+    dragging = b;
+  }
+
+	public boolean isDragging() {
+		return dragging;
+	}
+
+  public void addAttribute(Attribute attr) {
+    attributes.add(attr);
+  }
+
+	public ArrayList getValues() {
+		ArrayList vals = new ArrayList();
+		for (int i = 0; i < this.attributes.size(); i++) {
+			for (int j = 0; j < this.attributes[i].values.size(); j++) {
+				vals.add(this.attributes[i].values[j]);
+			}
+		}
+		return vals;
+	}
+	
+	public void draw() {
+
+    if (loading) { // draw loading
+      noStroke();
+			// spacer
+      fill(255);
+      ellipse(this.x, this.y, radiusClosed*2+50, radiusClosed*2+50);
+
+      fill(0,0,0,0);
+			stroke(111);
+			strokeWeight(20);
+			curContext.lineCap = "butt"; // processing.js patch!
+      
+			arc(this.x, this.y, radiusClosed*2+20, radiusClosed*2+20, 0, TWO_PI);
+
+      float angle = 0;
+      angle += theta;
+      // draw separators
+      for (int i=0; i<7; i++) {
+        stroke(255);
+        strokeWeight(2);
+        angle += TWO_PI/6;
+        
+        line(this.x, this.y, this.x+cos(angle)*(radiusClosed+25), this.y+sin(angle)*(radiusClosed+25));
+      }
+			labelOffset = 30;
+			
+    } else if (state=="open") {
+			noStroke();
+			
+			// spacer
+      fill(255);
+      ellipse(this.x, this.y, radiusOuter*2+50, radiusOuter*2+50);
+			
+			// draw attributes
+			for (int i = 0 ; i < attributes.size(); i++) {
+				
+				float weight = 40;
+				Attribute attribute = attributes[i];
+				ArrayList values = attribute.getValues();
+
+        if (selectedAttribute==attribute) {
+          weight = 50;
+          fill(255);
+          arc(this.x, this.y, (radiusOuter+30)*2, (radiusOuter+30)*2, attribute.angleStart, attribute.angleStop);
+        }
+
+				fill(0,0,0,0);
+				
+				stroke(attribute.col);
+				strokeWeight(weight);
+				curContext.lineCap = "butt"; // processing.js patch!
+				arc(this.x, this.y, radiusOuter*2, radiusOuter*2, attribute.angleStart, attribute.angleStop);
+				noStroke();
+			}
+			
+			// draw values
+			for (int i = 0 ; i < attributes.size(); i++) {
+				Attribute attribute = attributes[i];
+				ArrayList values = attribute.getValues();
+				
+				for (int j = 0; j < values.size(); j++) {
+				  stroke(colors[i%12]);
+				  strokeWeight(1);
+				  values[j].draw();
+				}
+				// draw labels
+				attribute.draw();
+			}
+      
+      labelOffset = radiusOuter;
+      
+		}	else if (state=="closed") { // draw closed
+			noStroke();
+			// spacer
+      fill(255);
+      ellipse(this.x, this.y, radiusClosed*2+50, radiusClosed*2+50);
+
+      fill(0,0,0,0);
+			stroke(222);
+			strokeWeight(20);
+			curContext.lineCap = "butt"; // processing.js patch!
+      
+			arc(this.x, this.y, radiusClosed*2+20, radiusClosed*2+20, 0, TWO_PI);
+
+      float angle = 0;
+      // draw separators
+      for (int i=0; i<7; i++) {
+        stroke(255);
+        strokeWeight(2);
+        angle += TWO_PI/6;
+        line(this.x, this.y, this.x+cos(angle)*(radiusClosed+25), this.y+sin(angle)*(radiusClosed+25));
+      }
+			
+			labelOffset = 30;
+		}
+		
+		if (hovering)
+		  fill(0,0,0,150);
+    else
+      fill(66, 66, 66, 100);
+
+    noStroke();
+		ellipse(this.x,this.y, diameter, diameter);
+    
+    if (!loading) {
+  		fill(33);
+  		textFont(defaultFont, 13);
+  		fontWidth = defaultFont.width((idx+1)+". "+this.getName()) * fontSize;
+  		text((idx+1)+". "+this.getName(), this.x-fontWidth/2, this.y+10+labelOffset+30);
+  		textFont(defaultFont, fontSize);
+    }
+	}
+	
+	public boolean mouseOver() {
+	  float disX = this.x - mouseX;
+	  float disY = this.y - mouseY;
+		
+	  if(sqrt(sq(disX) + sq(disY)) < diameter/2 ) {
+			hovering = true;
+	    return true;
+		} else {
+			hovering = false;
+			return false;
+		}
+	}
+}

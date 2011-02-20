@@ -1,0 +1,160 @@
+/***************************************************************
+/* Value
+/**************************************************************/
+
+public class Value {
+	boolean hovering = false;
+	
+  String id = "";
+  String name = "";
+  
+  int idx = 0;
+	
+	float x;
+	float y;
+	float angleStart;
+  float angleStop;
+	
+	float diameter = 15;
+	color col;
+	color hoverCol;
+	Attribute attr;
+
+	public Value(String id, String name, Attribute attr) {
+		this.id = id;
+		this.name = name;
+		this.attr = attr;
+		this.hoverCol = color(200,0,0,100);
+	}
+	
+	public Attribute getAttribute() {
+		return attr;
+	}
+	
+	public void setPos(float x, float y) {
+		this.x = x;
+		this.y = y;
+	}
+	
+	public void setAngles(float angleStart, float angleStop) {
+		this.angleStart = angleStart;
+		this.angleStop = angleStop;
+	}
+	
+	public void setCol(color col) {
+		this.col = col;
+	}
+	
+	public String getId() {
+		return this.id;
+	}
+	
+	public String getName() {
+		return this.name;
+	}
+	
+	public void draw() {
+		
+		float radiusOuter = this.attr.getResource().radiusOuter;
+		float radius = attr.resource.radius;
+		
+		float x = this.attr.getResource().x+cos((this.angleStart+this.angleStop) / 2)*(radiusOuter+10);
+		float y = this.attr.getResource().y+sin((this.angleStart+this.angleStop) / 2)*(radiusOuter+10);
+		
+    if (idx<attr.values.size()-1) {
+      stroke(255, 255, 255, 70);
+      // value separator
+      line(this.attr.getResource().x+cos(this.angleStop)*(radiusOuter-25), this.attr.getResource().y+sin(this.angleStop)*(radiusOuter-25), this.attr.getResource().x+cos(this.angleStop)*(radiusOuter+25), this.attr.getResource().y+sin(this.angleStop)*(radiusOuter+25));
+    } else {
+      stroke(255);
+      strokeWeight(2);
+      line(this.attr.getResource().x+cos(this.angleStop)*(radiusOuter-25), this.attr.getResource().y+sin(this.angleStop)*(radiusOuter-25), this.attr.getResource().x+cos(this.angleStop)*(radiusOuter+25), this.attr.getResource().y+sin(this.angleStop)*(radiusOuter+25));
+    }
+       
+    fill(0,0,0);
+    
+    if (hovering) {
+      curContext.lineCap = "butt"; // processing.js patch!
+      noFill();
+      stroke(0,0,0,20);
+      strokeWeight(50);
+      arc(this.attr.resource.x, this.attr.resource.y, (this.attr.resource.radiusOuter)*2, (this.attr.resource.radiusOuter)*2, angleStart, angleStop);
+    }
+		
+		noStroke();
+		strokeWeight(0); // reset
+		
+		
+    if (selectedValueIndex!=null && attr.getResource().getSelectedAttribute()==attr) {
+     float theta = ((this.angleStart+this.angleStop) / 2)%TWO_PI-0.04;
+     float angle = theta;
+     
+     if (theta > PI/2 && theta < (PI+PI/2)+0.04) {
+       fWidth = defaultFont.width(this.getName()) * fontSize;
+       angle += 0.09;
+     } else
+       fWidth = 0;
+    
+     pushMatrix();
+     
+     translate(this.attr.getResource().x, this.attr.getResource().y);
+     rotate(angle);
+       pushMatrix();
+       
+       translate(attr.resource.radiusOuter+35+fWidth,0);
+       if (attr.resource.getValues()[selectedValueIndex]==this)
+         fill(33);
+       else
+         fill(120);
+         
+       pushMatrix();
+       if (theta > PI/2 && theta < (PI+PI/2)+0.04) {
+         rotate(PI);
+       }
+       
+       text(this.getName(), 0, 0);
+       
+       popMatrix();
+       
+       popMatrix();
+     popMatrix();
+    }
+	}
+	
+	public boolean isHovering() {
+		return hovering;
+	}
+		
+	public boolean mouseOver() {
+		float disX = mouseX - this.attr.getResource().x;
+		float disY = mouseY - this.attr.getResource().y;
+		
+		// calculate polar coordinates
+		float radius = Math.sqrt(sq(disX)+sq(disY));
+		float angle = atan2(disY, disX);
+		if (angle<0) angle = TWO_PI+angle; // shift to 0-TWO_PI interval
+		
+		float start = this.angleStart % TWO_PI;
+		float stop = this.angleStop % TWO_PI;
+		
+		// workaround for resources that have just one value
+		if (this.attr.getResource().getValues().size()==1) {
+			if (radius >= this.attr.getResource().radiusOuter-20 && radius <= this.attr.getResource().radiusOuter+20) {
+				hovering = true;
+				attr.getResource().setSelectedAttribute(attr);
+				return true;
+			}
+		}
+		
+		if (radius >= this.attr.getResource().radiusOuter-20 && radius <= this.attr.getResource().radiusOuter+20 && 
+				((angle>start && angle<stop) || (start>stop && (angle > start || angle < stop)))    ) {
+			hovering = true;
+			attr.getResource().setSelectedAttribute(attr);
+			return true
+		}
+		else {
+			hovering = false;
+			return false;
+		}
+	}
+}

@@ -1,0 +1,1061 @@
+//***************************************************************
+//* Attraction
+//**************************************************************/
+
+public class Attraction
+{
+	Particle a;
+	Particle b;
+	float k;
+	boolean on;
+	float distanceMin;
+	float distanceMinSquared;
+	
+	public Attraction( Particle a, Particle b, float k, float distanceMin )
+	{
+		this.a = a;
+		this.b = b;
+		this.k = k;
+		on = true;
+		this.distanceMin = distanceMin;
+		this.distanceMinSquared = distanceMin*distanceMin;
+	}
+
+	public void setA( Particle p )
+	{
+		a = p;
+	}
+
+	public void setB( Particle p )
+	{
+		b = p;
+	}
+
+	public float getMinimumDistance()
+	{
+		return distanceMin;
+	}
+
+	public void setMinimumDistance( float d )
+	{
+		distanceMin = d;
+		distanceMinSquared = d*d;
+	}
+
+	public void turnOff()
+	{
+		on = false;
+	}
+
+	public void turnOn()
+	{
+		on = true;
+	}
+
+	public void setStrength( float k )
+	{
+		this.k = k;
+	}
+
+	public Particle getOneEnd()
+	{
+		return a;
+	}
+
+	public Particle getTheOtherEnd()
+	{
+		return b;
+	}
+
+	public void apply()
+	{
+		if ( on && ( a.isFree() || b.isFree() ) )
+		{
+			float a2bX = a.position().x - b.position().x;
+			float a2bY = a.position().y - b.position().y;
+			float a2bZ = a.position().z - b.position().z;
+
+			float a2bDistanceSquared = a2bX*a2bX + a2bY*a2bY + a2bZ*a2bZ;
+
+			if ( a2bDistanceSquared < distanceMinSquared )
+				a2bDistanceSquared = distanceMinSquared;
+
+			float force = k * a.mass() * b.mass() / a2bDistanceSquared;
+
+			float length = (float)Math.sqrt( a2bDistanceSquared );
+			
+			// make unit vector
+			
+			a2bX /= length;
+			a2bY /= length;
+			a2bZ /= length;
+			
+			// multiply by force 
+			
+			a2bX *= force;
+			a2bY *= force;
+			a2bZ *= force;
+
+			// apply
+			
+			if ( a.isFree() )
+				a.force().add( -a2bX, -a2bY, -a2bZ );
+			if ( b.isFree() )
+				b.force().add( a2bX, a2bY, a2bZ );
+		}
+	}
+
+	public float getStrength()
+	{
+		return k;
+	}
+
+	public boolean isOn()
+	{
+		return on;
+	}
+
+	public boolean isOff()
+	{
+		return !on;
+	}
+}
+
+
+//***************************************************************
+//* EulerIntegrator
+//**************************************************************/
+
+public class EulerIntegrator
+{
+	ParticleSystem s;
+	
+	public EulerIntegrator( ParticleSystem s )
+	{
+		this.s = s;
+	}
+	
+	public void step( float t )
+	{
+		s.clearForces();
+		s.applyForces();
+		
+		for ( int i = 0; i < s.numberOfParticles(); i++ )
+		{
+			Particle p = s.getParticle( i );
+			if ( p.isFree() )
+			{
+				
+				p.velocity().add( p.force().x/(p.mass()*t), p.force().y/(p.mass()*t), p.force().z/(p.mass()*t) );
+				p.position().add( p.velocity().x/t, p.velocity().y/t, p.velocity().z/t );
+				
+			}
+		}
+	}
+}
+
+
+/***************************************************************
+/* ModifiedEulerIntegrator
+/**************************************************************/
+
+
+public class ModifiedEulerIntegrator
+{
+	ParticleSystem s;
+	
+	public ModifiedEulerIntegrator( ParticleSystem s )
+	{
+		this.s = s;
+	}
+	
+	public void step( float t )
+	{
+		s.clearForces();
+		s.applyForces();
+		
+		float halftt = 0.5*t*t;
+		
+		for ( int i = 0; i < s.numberOfParticles(); i++ )
+		{
+			
+			Particle p = s.getParticle( i );
+			if ( p.isFree() )
+			{
+				float ax = p.force().x/p.mass();
+				float ay = p.force().y/p.mass();
+				float az = p.force().z/p.mass();
+				
+				p.position().add( p.velocity().x/t, p.velocity().y/t, p.velocity().z/t );
+				p.position().add( ax*halftt, ay*halftt, az*halftt );
+				p.velocity().add( ax/t, ay/t, az/t );
+			}
+		}
+		
+	}
+
+}
+
+
+
+/***************************************************************
+/* RungeKuttaIntegrator
+/**************************************************************/
+
+
+public class RungeKuttaIntegrator
+{	
+	ArrayList originalPositions;
+	ArrayList originalVelocities;
+	ArrayList k1Forces;
+	ArrayList k1Velocities;
+	ArrayList k2Forces;
+	ArrayList k2Velocities;
+	ArrayList k3Forces;
+	ArrayList k3Velocities;
+	ArrayList k4Forces;
+	ArrayList k4Velocities;
+	
+	ParticleSystem s;
+	
+	public RungeKuttaIntegrator( ParticleSystem s )
+	{
+		this.s = s;
+		
+		originalPositions = new ArrayList();
+		originalVelocities = new ArrayList();
+		k1Forces = new ArrayList();
+		k1Velocities = new ArrayList();
+		k2Forces = new ArrayList();
+		k2Velocities = new ArrayList();
+		k3Forces = new ArrayList();
+		k3Velocities = new ArrayList();
+		k4Forces = new ArrayList();
+		k4Velocities = new ArrayList();
+	}
+	
+	void allocateParticles()
+	{
+		while ( s.particles.size() > originalPositions.size() )
+		{
+			originalPositions.add( new Vector3D() );
+			originalVelocities.add( new Vector3D() );
+			k1Forces.add( new Vector3D() );
+			k1Velocities.add( new Vector3D() );
+			k2Forces.add( new Vector3D() );
+			k2Velocities.add( new Vector3D() );
+			k3Forces.add( new Vector3D() );
+			k3Velocities.add( new Vector3D() );
+			k4Forces.add( new Vector3D() );
+			k4Velocities.add( new Vector3D() );
+		}
+	}
+	
+	public void step( float deltaT )
+	{	
+		allocateParticles();
+		
+		
+		/////////////////////////////////////////////////////////
+		// save original position and velocities
+		
+		for ( int i = 0; i < s.particles.size(); ++i )
+		{
+			Particle p = s.particles.get( i );
+			if ( p.isFree() )
+			{		
+				(originalPositions.get( i )).set( p.position() );
+				(originalVelocities.get( i )).set( p.velocity() );
+			}
+			
+			p.force().clear();	// and clear the forces
+		}
+		
+		////////////////////////////////////////////////////////
+		// get all the k1 values
+		
+		s.applyForces();
+		
+		// save the intermediate forces
+		for ( int i = 0; i < s.particles.size(); ++i )
+		{
+			Particle p = s.particles.get( i );
+			if ( p.isFree() )
+			{
+				(k1Forces.get( i )).set( p.force() );
+				(k1Velocities.get( i )).set( p.velocity() );
+			}
+			
+			p.force().clear();
+		}
+		
+		
+		////////////////////////////////////////////////////////////////
+		// get k2 values
+		
+		for ( int i = 0; i < s.particles.size(); ++i )
+		{
+			Particle p = s.particles.get( i );
+			if ( p.isFree() )
+			{
+				Vector3D originalPosition = originalPositions.get( i );
+				Vector3D k1Velocity = k1Velocities.get( i );
+				
+				p.position().x = originalPosition.x + k1Velocity.x * 0.5 * deltaT;
+				p.position().y = originalPosition.y + k1Velocity.y * 0.5 * deltaT;
+				p.position().z = originalPosition.z + k1Velocity.z * 0.5 * deltaT;
+				
+				Vector3D originalVelocity = originalVelocities.get( i );
+				Vector3D k1Force = k1Forces.get( i );
+				
+				p.velocity().x = originalVelocity.x + k1Force.x * 0.5 * deltaT / p.mass();
+				p.velocity().y = originalVelocity.y + k1Force.y * 0.5 * deltaT / p.mass();
+				p.velocity().z = originalVelocity.z + k1Force.z * 0.5 * deltaT / p.mass();
+
+			}
+		}
+		
+		
+		return
+		s.applyForces();
+		
+		
+		
+		// save the intermediate forces
+		for ( int i = 0; i < s.particles.size(); ++i )
+		{
+			Particle p = s.particles.get( i );
+			if ( p.isFree() )
+			{
+				(k2Forces.get( i )).set( p.force() );
+				(k2Velocities.get( i )).set( p.velocity() );
+			}
+			
+			p.force().clear();	// and clear the forces now that we are done with them
+		}
+		
+		
+		/////////////////////////////////////////////////////
+		// get k3 values
+		for ( int i = 0; i < s.particles.size(); ++i )
+		{
+			Particle p = (Particle)s.particles.get( i );
+			if ( p.isFree() )
+			{
+				Vector3D originalPosition = originalPositions.get( i );
+				Vector3D k2Velocity = k2Velocities.get( i );
+				
+				p.position().x = originalPosition.x + k2Velocity.x * 0.5 * deltaT;
+				p.position().y = originalPosition.y + k2Velocity.y * 0.5 * deltaT;
+				p.position().z = originalPosition.z + k2Velocity.z * 0.5 * deltaT;
+				
+				Vector3D originalVelocity = originalVelocities.get( i );
+				Vector3D k2Force = k2Forces.get( i );
+				
+				p.velocity().x = originalVelocity.x + k2Force.x * 0.5 * deltaT / p.mass();
+				p.velocity().y = originalVelocity.y + k2Force.y * 0.5 * deltaT / p.mass();
+				p.velocity().z = originalVelocity.z + k2Force.z * 0.5 * deltaT / p.mass();
+			}
+		}
+		
+		s.applyForces();
+		
+		// save the intermediate forces
+		for ( int i = 0; i < s.particles.size(); ++i )
+		{
+			Particle p = s.particles.get( i );
+			if ( p.isFree() )
+			{
+				(k3Forces.get( i )).set( p.force() );
+				(k3Velocities.get( i )).set( p.velocity() );
+			}
+			
+			p.force().clear();	// and clear the forces now that we are done with them
+		}
+		
+		
+		//////////////////////////////////////////////////
+		// get k4 values
+		
+		for ( int i = 0; i < s.particles.size(); ++i )
+		{
+			Particle p = s.particles.get( i );
+			if ( p.isFree() )
+			{
+				Vector3D originalPosition = (Vector3D)originalPositions.get( i );
+				Vector3D k3Velocity = (Vector3D)k3Velocities.get( i );
+				
+				p.position().x = originalPosition.x + k3Velocity.x * deltaT;
+				p.position().y = originalPosition.y + k3Velocity.y * deltaT;
+				p.position().z = originalPosition.z + k3Velocity.z * deltaT;
+				
+				Vector3D originalVelocity = (Vector3D)originalVelocities.get( i );
+				Vector3D k3Force = (Vector3D)k3Forces.get( i );
+				
+				p.velocity().x = originalVelocity.x + k3Force.x * deltaT / p.mass();
+				p.velocity().y = originalVelocity.y + k3Force.y * deltaT / p.mass();
+				p.velocity().z = originalVelocity.z + k3Force.z * deltaT / p.mass();
+
+			}
+		}
+		
+		s.applyForces();
+		
+		// save the intermediate forces
+		for ( int i = 0; i < s.particles.size(); ++i )
+		{
+			Particle p = s.particles.get( i );
+			if ( p.isFree() )
+			{
+				(k4Forces.get( i )).set( p.force() );
+				(k4Velocities.get( i )).set( p.velocity() );
+			}
+		}
+		
+		/////////////////////////////////////////////////////////////
+		// put them all together and what do you get?
+		
+		for ( int i = 0; i < s.particles.size(); ++i )
+		{
+			Particle p = s.particles.get( i );
+			p.age += deltaT;
+			if ( p.isFree() )
+			{
+				// update position
+				
+				Vector3D originalPosition = originalPositions.get( i );
+				Vector3D k1Velocity = k1Velocities.get( i );
+				Vector3D k2Velocity = k2Velocities.get( i );
+				Vector3D k3Velocity = k3Velocities.get( i );
+				Vector3D k4Velocity = k4Velocities.get( i );
+				
+				p.position().x = originalPosition.x + deltaT / 6.0 * ( k1Velocity.x + 2.0*k2Velocity.x + 2.0*k3Velocity.x + k4Velocity.x );
+				p.position().y = originalPosition.y + deltaT / 6.0 * ( k1Velocity.y + 2.0*k2Velocity.y + 2.0*k3Velocity.y + k4Velocity.y );
+				p.position().z = originalPosition.z + deltaT / 6.0 * ( k1Velocity.z + 2.0*k2Velocity.z + 2.0*k3Velocity.z + k4Velocity.z );
+				
+				// update velocity
+				Vector3D originalVelocity = originalVelocities.get( i );
+				Vector3D k1Force = k1Forces.get( i );
+				Vector3D k2Force = k2Forces.get( i );
+				Vector3D k3Force = k3Forces.get( i );
+				Vector3D k4Force = k4Forces.get( i );
+				
+				p.velocity().x = originalVelocity.x + deltaT / ( 6.0 * p.mass() ) * ( k1Force.x + 2.0*k2Force.x + 2.0*k3Force.x + k4Force.x );
+				p.velocity().y = originalVelocity.y + deltaT / ( 6.0 * p.mass() ) * ( k1Force.y + 2.0*k2Force.y + 2.0*k3Force.y + k4Force.y );
+				p.velocity().z = originalVelocity.z + deltaT / ( 6.0 * p.mass() ) * ( k1Force.z + 2.0*k2Force.z + 2.0*k3Force.z + k4Force.z );
+			}
+		}
+	}
+}
+
+
+/***************************************************************
+/* Spring
+/**************************************************************/
+
+
+public class Spring
+{
+  float springConstant;
+  float myDamping;
+  float myRestLength;
+  Particle a, b;
+  boolean on;
+    
+  public Spring( Particle A, Particle B, float ks, float d, float r )
+  {		
+    springConstant = ks;
+    myDamping = d;
+    myRestLength = r;
+    a = A;
+    b = B;
+    on = true;
+  }
+  
+  public void turnOff()
+  {
+	  on = false;
+  }
+  
+  public void turnOn()
+  {
+	  on = true;
+  }
+  
+  public boolean isOn()
+  {
+	  return on;
+  }
+  
+  public boolean isOff()
+  {
+	  return !on;
+  }
+  
+  public Particle getOneEnd()
+  {
+	  return a;
+  }
+  
+  public Particle getTheOtherEnd()
+  {
+	  return b;
+  }
+  
+  public float currentLength()
+  {
+	  return a.position().distanceTo( b.position() );
+  }
+  
+  public float restLength()
+  {
+	  return myRestLength;
+  }
+  
+  public float strength()
+  {
+	  return springConstant;
+  }
+  
+  public void setStrength( float ks )
+  {
+	  springConstant = ks;
+  }
+  
+  public float damping()
+  {
+	  return myDamping;
+  }
+  
+  public void setDamping( float d )
+  {
+	  myDamping = d;
+  }
+  
+  public void setRestLength( float l )
+  {
+	  myRestLength = l;
+  }
+
+  public void apply()
+  {	
+		if ( on && ( a.isFree() || b.isFree() ) )
+		{
+			
+			float a2bX = a.position().x - b.position().x;
+			float a2bY = a.position().y - b.position().y;
+			float a2bZ = a.position().z - b.position().z;
+		
+			float a2bDistance = (float)Math.sqrt( a2bX*a2bX + a2bY*a2bY + a2bZ*a2bZ );
+		
+			if ( a2bDistance == 0 )
+			{
+				a2bX = 0;
+				a2bY = 0;
+				a2bZ = 0;
+			}
+			else
+			{
+				a2bX /= a2bDistance;
+				a2bY /= a2bDistance;
+				a2bZ /= a2bDistance;
+			}
+		
+			// spring force is proportional to how much it stretched 
+			float springForce = -( a2bDistance - myRestLength ) * springConstant; 
+
+			// want velocity along line b/w a & b, damping force is proportional to this
+			float Va2bX = a.velocity().x - b.velocity().x;
+			float Va2bY = a.velocity().y - b.velocity().y;
+			float Va2bZ = a.velocity().z - b.velocity().z;
+		               		
+			float dampingForce = -myDamping * ( a2bX*Va2bX + a2bY*Va2bY + a2bZ*Va2bZ );
+		
+			// forceB is same as forceA in opposite direction
+		
+			float r = springForce + dampingForce;
+			
+			a2bX *= r;
+			a2bY *= r;
+			a2bZ *= r;
+	    
+			if ( a.isFree() )
+				a.force().add( a2bX, a2bY, a2bZ );
+			if ( b.isFree() )
+				b.force().add( -a2bX, -a2bY, -a2bZ );
+		}
+  }
+	
+  public void setA( Particle p )
+  {
+	  a = p;
+  }
+  
+  public void setB( Particle p )
+  {
+	  b = p;
+  }
+}
+
+
+
+/***************************************************************
+/* Particle
+/**************************************************************/
+
+public class Particle
+{
+  Vector3D myPosition;
+  Vector3D myVelocity;
+  Vector3D myForce;
+  float myMass;
+  float age;
+
+  boolean dead;  
+  boolean fixed;
+	
+  public Particle( float m )
+  {
+	  myPosition = new Vector3D(0,0,0);
+	  myVelocity = new Vector3D(0,0,0);
+	  myForce = new Vector3D(0,0,0);
+	  myMass = m;	  
+	  age = 0;
+		fixed = false;
+		dead = false;
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#distanceTo(traer.physics.Particle)
+ */
+	public float distanceTo( Particle p )
+  {
+	  return this.position().distanceTo( p.position() );
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#makeFixed()
+ */
+	public void makeFixed()
+  {
+	  fixed = true;
+	  myVelocity.clear();
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#isFixed()
+ */
+	public boolean isFixed()
+  {
+	  return fixed;
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#isFree()
+ */
+	public boolean isFree()
+  {
+	  return !fixed;
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#makeFree()
+ */
+	public void makeFree()
+  {
+	  fixed = false;
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#position()
+ */
+	public Vector3D position()
+  {
+	  return myPosition;
+  }
+  
+  public Vector3D velocity()
+  {
+	  return myVelocity;
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#mass()
+ */
+	public float mass()
+  {
+	  return myMass;
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#setMass(float)
+ */
+	public void setMass( float m )
+  {
+	  myMass = m;
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#force()
+ */
+	public Vector3D force()
+  {
+	  return myForce;
+  }
+  
+  /* (non-Javadoc)
+ * @see traer.physics.AbstractParticle#age()
+ */
+	// public float age()
+	//   {
+	//   return myAge;
+	//   }
+  
+  void reset()
+  {
+	  age = 0;
+	  dead = false;
+	  position.clear();
+	  myVelocity.clear();
+	  myForce.clear();
+	  myMass = 1;
+  }
+}
+
+
+
+/***************************************************************
+/* ParticleSystem
+/**************************************************************/
+
+
+public class ParticleSystem
+{
+	static int RUNGE_KUTTA = 0;
+	static int MODIFIED_EULER = 1;
+	
+	static float DEFAULT_GRAVITY = 0;
+	static float DEFAULT_DRAG = 0.001f;	
+	
+  ArrayList particles;
+  ArrayList springs;
+  ArrayList attractions;
+  ArrayList customForces = new ArrayList();
+ 
+  Integrator integrator;
+  
+  Vector3D gravity;
+  float drag;
+
+  boolean hasDeadParticles = false;
+  
+	//   public ParticleSystem( float g, float somedrag )
+	//   {
+	// 		 integrator = new RungeKuttaIntegrator( this );
+	//     particles = new ArrayList();
+	//     springs = new ArrayList();
+	//     attractions = new ArrayList();
+	//     gravity = new Vector3D( 0, g, 0 );
+	//     drag = somedrag;
+	//   }
+  
+
+	// common: new ParticleSystem(0, x, 0, somedrag)
+  public ParticleSystem( float gx, float gy, float gz, float somedrag )
+  {
+		integrator = new RungeKuttaIntegrator( this );
+		//integrator = new ModifiedEulerIntegrator( this );
+    particles = new ArrayList();
+    springs = new ArrayList();
+    attractions = new ArrayList();
+    gravity = new Vector3D( gx, gy, gz );
+    drag = somedrag;
+  }
+  
+	//  public ParticleSystem()
+	//  {
+	// integrator = new RungeKuttaIntegrator( this );
+	// particles = new ArrayList();
+	// springs = new ArrayList();
+	// attractions = new ArrayList();
+	// gravity = new Vector3D( 0, ParticleSystem.DEFAULT_GRAVITY, 0 );
+	// drag = ParticleSystem.DEFAULT_DRAG;
+	//   }
+
+  public void setIntegrator( int integrator )
+  {
+		switch ( integrator )
+		{
+			case RUNGE_KUTTA:
+				this.integrator = new RungeKuttaIntegrator( this );
+				break;
+			case MODIFIED_EULER:
+				this.integrator = new ModifiedEulerIntegrator( this );
+				break;
+		}
+  }
+  
+  public void setGravity( float x, float y, float z )
+  {
+	  gravity.set( x, y, z );
+  }
+    
+  public void setDrag( float d )
+  {
+	  drag = d;
+  }
+  
+  // public void tick()
+  // {
+  // 	  tick( 1 );
+  // }
+  
+  public void tick( float t )
+  {  
+	  integrator.step( t );
+  }
+
+	public void tickOnce() {
+		integrator.step( 1.0 );
+	}
+  
+  public Particle makeParticle( float mass, float x, float y, float z )
+  {
+	  Particle p = new Particle( mass );
+		// makeParticle
+		
+	  p.position().set( x, y, z );
+	  particles.add( p );
+	  return p;
+  }
+  
+  // public Particle makeOrdinaryParticle()
+  // {  
+  // 	  return makeParticle( 1.0, 0.0, 0.0, 0.0 );
+  // }
+  
+  public Spring makeSpring( Particle a, Particle b, float ks, float d, float r )
+  {
+	  Spring s = new Spring( a, b, ks, d, r );
+	  springs.add( s );
+	  return s;
+  }
+  
+  public Attraction makeAttraction( Particle a, Particle b, float k, float minDistance )
+  {
+	  Attraction m = new Attraction( a, b, k, minDistance );
+	  attractions.add( m );
+	  return m;
+  }
+  
+  public void clear()
+  {
+	  particles.clear();
+	  springs.clear();
+	  attractions.clear();
+  }
+
+  
+  public void applyForces()
+  {
+		
+  	  if ( !gravity.isZero() )
+  	  {
+  		  for ( int i = 0; i < particles.size(); ++i )
+  		  {
+  			  Particle p = particles.get( i );
+  			  p.force().add( gravity );
+  		  }
+  	  }
+  	
+  	  for ( int i = 0; i < particles.size(); ++i )
+  	  {
+  		  Particle p = particles.get( i );
+				
+  		  xx = p.force().add( p.velocity().x * -drag, p.velocity().y * -drag, p.velocity().z * -drag );
+  	  }
+
+  	  for ( int i = 0; i < springs.size(); i++ )
+  	  {
+  		  Spring f = springs.get( i );
+  		  f.apply();
+  	  }
+			
+  	  for ( int i = 0; i < attractions.size(); i++ )
+  	  {
+  		  Attraction f = attractions.get( i );
+  		  f.apply();
+  	  }
+			  	  
+  	  for ( int i = 0; i < customForces.size(); i++ )
+  	  {
+  		  Force f = customForces.get( i );
+  		  f.apply();
+  	  }
+  }
+  
+
+	// calls clear on each particle's force
+  void clearForces()
+  {
+	  
+		for ( int i = 0; i < particles.size(); i++ ) {
+			Particle p = particles.get( i );
+			p.force().clear();
+	  }
+  }
+  
+  public int numberOfParticles()
+  {
+	  return particles.size();
+  }
+  
+  public int numberOfSprings()
+  {
+	  return springs.size();
+  }
+  
+  public int numberOfAttractions()
+  {
+	  return attractions.size();
+  }
+  
+  public Particle getParticle( int i )
+  {
+	  return (Particle)particles.get( i );
+  }
+  
+  public Spring getSpring( int i )
+  {
+	  return springs.get( i );
+  }
+  
+  public Attraction getAttraction( int i )
+  {
+	  return attractions.get( i );
+  }
+  
+  public void addCustomForce( Force f )
+  {
+	  customForces.add( f );
+  }
+  
+  public int numberOfCustomForces()
+  {
+	  return customForces.size();
+  }
+  
+  public Force getCustomForce( int i )
+  {
+	  return customForces.get( i );
+  }
+  
+  public Force removeCustomForce( int i )
+  {
+	  return customForces.remove( i );
+  }
+  
+  public void removeParticle( Particle p )
+  {
+	  particles.remove( p );
+  }
+  
+  public Spring removeSpring( int i )
+  {
+	  return springs.remove( i );
+  }
+  
+  public Attraction removeAttraction( int i  )
+  {
+	  return attractions.remove( i );
+  }
+  
+  public void removeAttraction( Attraction s )
+  {
+	  attractions.remove( s );
+  }
+  
+  public void removeSpring( Spring a )
+  {
+	  springs.remove( a );
+  }
+  
+  public void removeCustomForce( Force f )
+  {
+	  customForces.remove( f );
+  }
+}
+
+
+/***************************************************************
+/* Vector3D
+/**************************************************************/
+
+
+public class Vector3D
+{
+	float x;
+	float y;
+	float z;
+
+	public Vector3D( float X, float Y, float Z )	{ x = X; y = Y; z = Z; }
+	// public Vector3D()                      				{ x = 0; y = 0; z = 0; }
+	// public Vector3D( Vector3D p )							{ x = p.x; y = p.y; z = p.z; }
+	
+	
+	// access these attributes using p.x etc.
+	
+	// public float z()									{ return z; }
+	// public float y()                   				{ return y; }
+	// public float x()                   				{ return x; }
+	
+	public void setX( float X )           			{ x = X; }
+	public void setY( float Y )           			{ y = Y; }
+	public void setZ( float Z )						{ z = Z; }
+	
+	
+	public void set( float X, float Y, float Z )	{ x = X; y = Y; z = Z; }
+	
+	public void set( Vector3D p )						{ x = p.x; y = p.y; z = p.z; }
+	
+	public void add( Vector3D p )          				{ x += p.x; y += p.y; z += p.z; }
+	public void subtract( Vector3D p )					{ x -= p.x; y -= p.y; z -= p.z; }
+	  
+	public void add( float a, float b, float c )		{ x += a; y += b; z += c; } 
+	public void subtract( float a, float b, float c )		{ x -= a; y -= b; z -= c; }
+	 
+		  
+	public Vector3D multiplyBy( float f )					{ x *= f; y *= f; z*= f; return this; }
+	
+	public float distanceTo( Vector3D p )  			{ return (float)Math.sqrt( distanceSquaredTo( p ) ); }
+	
+	public float distanceSquaredTo( Vector3D p )		{ float dx = x-p.x; float dy = y-p.y; float dz = z-p.z; return dx*dx + dy*dy + dz*dz; }
+	
+	public float distanceTo( float x, float y, float z )
+	{
+		float dx = this.x - x;
+		float dy = this.y - y;
+		float dz = this.z - z;
+		return (float)Math.sqrt( dx*dx + dy*dy + dz*dz );
+	}
+	
+	public float dot( Vector3D p )         			{ return x*p.x + y*p.y + z*p.z; }
+	public float length()                 			{ return (float)Math.sqrt( x*x + y*y + z*z ); }
+	public float lengthSquared()						{ return x*x + y*y + z*z; }
+	
+	public void clear()                   				{ x = 0; y = 0; z = 0; }
+	
+	public String toString()              				{ return new String( "(" + x + ", " + y + ", " + z + ")" ); }
+	
+	public Vector3D cross( Vector3D p )
+	{
+		return new Vector3D( 	this.y*p.z - this.z*p.y, 
+								this.x*p.z - this.z*p.x,
+								this.x*p.y - this.y*p.x );
+	}
+	
+	public boolean isZero()
+	{
+		return x == 0 && y == 0 && z == 0;
+	}
+}

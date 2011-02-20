@@ -1,0 +1,68 @@
+!!!
+%html
+  %head
+    %link(rel="stylesheet" href="/css/global.css")
+    %script{:src => "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"}
+    %script{:src => "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.2/jquery-ui.min.js"}
+    / %script{:src => "/js/processing-1.0.0.min.js"} 
+    %script{:src => "/js/processing.min.js"} 
+    %script{:src => '/js/freebase.suggest.min.js'}
+
+    %title Neovigator
+
+  %body
+    %canvas#neoviz
+    %header
+      %section#title
+        %h1 Neovigator
+        %p Neography Browser
+      %section#search
+        %form{:action => "/", :method => "get"}
+          %label Node ID:
+          %input#neoid{:type => "text", :value => "#{@neoid}", :name => "neoid"}
+          %input#loadnode{:type => "submit", :value => "Load", :class => "button"}
+      %br{:style => "clear: both;"}
+    %section#content
+      = yield
+    %aside
+      %div#explanation
+        / Neovigator introduction
+        %h2 About
+        %p
+          Neovigator is an attempt to visually navigate through 
+          %a{:href => "http://neo4j.org"} Neo4j 
+          by using the 
+          %a{:href => "https://github.com/maxdemarzi/neography"} Neography
+          Gem.
+
+          It takes advantage of the latest HTML5 features
+          by using the canvas element for drawing.
+        %h3 Get started
+        %p
+          Start using the browser by just typing in the id of an existing node.
+        %h3 Quirks
+        %p
+          There may be some unexpected behavior. Performance may drop significantly as
+          the number of nodes increases.
+        %h3 Credits
+        %p
+          This project is based on 
+          %a{:href => "http://askken.heroku.com/", :target => "_blank"} Ask Ken
+          created by 
+          %a{:href => "http://twitter.com/_mql", :target => "_blank"} Michael Aufreiter 
+          
+      <div id="browser_not_supported">
+      Your Browser is currently not supported.<br/><br/>Try one of these:<br/>
+      <a href="http://www.mozilla.com/en-US/firefox/firefox.html">Firefox 3.6</a><br/>
+      <a href="http://www.apple.com/safari/">Safari 4.0</a><br/>
+      <a href="http://www.google.com/chrome/">Chrome</a><br/>
+      </div>
+    %footer
+      .left
+        Created by
+        %a{:href => "http://twitter.com/maxdemarzi"} Max De Marzi
+      .right
+        using 
+        %a{:href => "http://neo4j.org", :target => "_blank"} Neo4j
+        | Code available at
+        %a{:href => "https://github.com/maxdemarzi/neovigator", :target => "_blank"} Github    

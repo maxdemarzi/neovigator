@@ -1,0 +1,37 @@
+:javascript
+  $(function() {
+    function canvasSupported() {
+      var canvas_compatible = false;
+      try {
+       canvas_compatible = !!(document.createElement('canvas').getContext('2d')); // S60
+      } catch(e) {
+       canvas_compatible = !!(document.createElement('canvas').getContext); // IE
+      }
+      return canvas_compatible;
+    }
+
+    if (canvasSupported()) {
+      
+      var canvas = document.getElementById("neoviz");
+      var p = Processing(canvas);
+      var initialized = false;
+
+      // init
+      p.resourceId = null; // "/en/new_order";
+      if (window.location.search.substring(1) == "") {
+        p.resourceId = 0; 
+      } else {
+        p.resourceId = window.location.search.substring(1);
+      }
+      p.init(p.ajax("/js/pjs/physics.pjs")+p.ajax("/js/pjs/value.pjs")+p.ajax("/js/pjs/attribute.pjs")+p.ajax("/js/pjs/resource.pjs")+p.ajax("/js/pjs/node.pjs")+p.ajax("/js/pjs/edge.pjs")+p.ajax("/js/pjs/graph.pjs")+p.ajax("/js/pjs/network.pjs"));
+      initialized = true;
+      
+      $(window).resize(function(){
+        p.resize();
+      });
+    } else {
+      $('#browser_not_supported').show();
+      $('#explanation').hide();
+    }
+  });
+
