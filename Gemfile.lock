@@ -1,3 +1,11 @@
+GIT
+  remote: http://github.com/maxdemarzi/neography.git
+  revision: 4f1dd0a88c9a0a39b030d78f8018381b4f48f2d4
+  specs:
+    neography (0.0.10)
+      httparty (~> 0.7.3)
+      json
+
 GEM
   remote: http://rubygems.org/
   specs:
@@ -7,9 +15,6 @@ GEM
     httparty (0.7.4)
       crack (= 0.1.8)
     json (1.5.1)
-    neography (0.0.10)
-      httparty (~> 0.7.3)
-      json
     net-http-spy (0.2.1)
     rack (1.2.1)
     rack-test (0.5.7)
@@ -33,7 +38,7 @@ PLATFORMS
 DEPENDENCIES
   haml (= 3.0.25)
   json
-  neography (= 0.0.10)
+  neography!
   net-http-spy
   rack-test
   rspec

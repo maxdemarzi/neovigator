@@ -37,17 +37,64 @@ class Neovigator < Sinatra::Base
     end
   end
 
-  
+  def neighbours
+    {"order"         => "depth first",
+     "uniqueness"    => "none",
+     "return filter" => {"language" => "builtin", "name" => "all but start node"},
+     "depth"         => 1}
+  end
+
+  def node_id(node)
+    case node
+      when Hash
+        node["self"].split('/').last
+      when String
+        node.split('/').last
+      else
+        node
+    end
+  end
+
+  def get_properties(node)
+    properties = "<ul>"
+    node["data"].each_pair do |key, value|
+        properties << "<li><b>#{key}:</b> #{value}</li>"
+      end
+    properties + "</ul>"
+  end
+
   get '/resources/show' do
     content_type :json
 
-    @node = {:details_html => "<h2>Fluency with information technology</h2>\n<p class='summary'>\nthere's no description for this topic yet.\n[\n<a href='http://freebase.com/view/soft/isbn/9780321268464/best' target='_new'>Freebase Topic</a>\n]\n</p>\n",
-             :data => {:attributes => [{:values => [], :name => "Number of pages", :id => "/book/book_edition/number_of_pages"},
-                                        {:values => [{:name => "Fluency with Information Technology", :id => "/en/fluency_with_information_technology"}], :name => "Edition Of", :id => "/book/book_edition/book"},
-                                        {:values => [{:name => "Lawrence Snyder", :id => "/en/lawrence_snyder"}], :name => "Author/editor", :id => "/book/book_edition/author_editor"},
-                                        {:values => [{:name => "9780321268464", :id => "/soft/isbn/9780321268464"}], :name => "ISBN", :id => "/book/book_edition/isbn"}],
-                        :name => "Fluency with information technology",
-                        :id => "/soft/isbn/9780321268464/best"}
+    node = @neo.get_node(params[:id]) 
+    connections = @neo.traverse(node, "fullpath", neighbours)
+    incoming = Hash.new{|h, k| h[k] = []}
+    outgoing = Hash.new{|h, k| h[k] = []}
+    nodes = Hash.new
+    attributes = Array.new
+
+    connections.each do |c|
+       c["nodes"].each do |n|
+         nodes[n["self"]] = n["data"]
+       end
+       rel = c["relationships"][0]
+       $stderr.puts rel.inspect
+
+       if rel["end"] == node["self"]
+         incoming["Incoming:#{rel["type"]}"] << {:values => nodes[rel["start"]].merge({:id => node_id(rel["start"]) }) }
+       else
+         outgoing["Outgoing:#{rel["type"]}"] << {:values => nodes[rel["end"]].merge({:id => node_id(rel["end"]) }) }
+       end
+    end
+
+      incoming.merge(outgoing).each_pair do |key, value|
+        attributes << {:id => key.split(':').last, :name => key, :values => value.collect{|v| v[:values]} }
+      end
+
+    @node = {:details_html => "<h2>Neo ID: #{node_id(node)}</h2>\n<p class='summary'>\n#{get_properties(node)}</p>\n",
+              :data => {:attributes => attributes,
+                        :name => node["data"]["name"],
+                        :id => node_id(node)}
             }
 
     @node.to_json

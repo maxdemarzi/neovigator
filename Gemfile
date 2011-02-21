@@ -1,6 +1,6 @@
 source :gemcutter
 gem 'sinatra', '1.1.2'
-gem 'neography', '0.0.10'
+gem 'neography', :git => 'http://github.com/maxdemarzi/neography.git'
 gem 'haml', '3.0.25'
 gem 'json'
 

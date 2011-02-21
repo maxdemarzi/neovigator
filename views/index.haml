@@ -21,7 +21,7 @@
       if (window.location.search.substring(1) == "") {
         p.resourceId = 0; 
       } else {
-        p.resourceId = window.location.search.substring(1);
+        p.resourceId = window.location.search.substring(1).split("=")[1];
       }
       p.init(p.ajax("/js/pjs/physics.pjs")+p.ajax("/js/pjs/value.pjs")+p.ajax("/js/pjs/attribute.pjs")+p.ajax("/js/pjs/resource.pjs")+p.ajax("/js/pjs/node.pjs")+p.ajax("/js/pjs/edge.pjs")+p.ajax("/js/pjs/graph.pjs")+p.ajax("/js/pjs/network.pjs"));
       initialized = true;
