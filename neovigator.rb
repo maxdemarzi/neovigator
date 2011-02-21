@@ -12,7 +12,7 @@ class Neovigator < Sinatra::Base
   configure do
     env = ENV['NEO4J_ENV'] || "development"
     $stderr.puts env
-    if env == "development"
+    if env == "test"
       require 'net-http-spy'
       Net::HTTP.http_logger_options = {:verbose => true} 
     end
