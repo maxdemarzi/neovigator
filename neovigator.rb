@@ -3,27 +3,14 @@ require 'neography'
 require 'sinatra/base'
 require 'uri'
 
-class Neovigator < Sinatra::Base
+class Neovigator < Sinatra::Application
   set :haml, :format => :html5 
   set :app_file, __FILE__
 
-  include Neography
-
-  configure do
-    env = ENV['NEO4J_ENV'] || "development"
-    $stderr.puts env
-    if env == "test"
-      require 'net-http-spy'
-      Net::HTTP.http_logger_options = {:verbose => true} 
-    end
-
-    Config.server = ENV['NEO4J_HOST'] || "neography.org"
-#   Config.directory = '/' + (ENV['NEO4J_INSTANCE'] || "")
-#   Config.authentication = "basic"
-#   Config.username = ENV['NEO4J_LOGIN'] || ""
-#   Config.password = ENV['NEO4J_PASSWORD']|| ""
+  configure :test do
+     require 'net-http-spy'
+     Net::HTTP.http_logger_options = {:verbose => true} 
   end
-
 
   before do
     @neo = Neography::Rest.new
@@ -40,7 +27,7 @@ class Neovigator < Sinatra::Base
   def neighbours
     {"order"         => "depth first",
      "uniqueness"    => "none",
-     "return filter" => {"language" => "builtin", "name" => "all but start node"},
+     "return filter" => {"language" => "builtin", "name" => "all_but_start_node"},
      "depth"         => 1}
   end
 
@@ -78,7 +65,6 @@ class Neovigator < Sinatra::Base
          nodes[n["self"]] = n["data"]
        end
        rel = c["relationships"][0]
-       $stderr.puts rel.inspect
 
        if rel["end"] == node["self"]
          incoming["Incoming:#{rel["type"]}"] << {:values => nodes[rel["start"]].merge({:id => node_id(rel["start"]) }) }
@@ -91,8 +77,10 @@ class Neovigator < Sinatra::Base
         attributes << {:id => key.split(':').last, :name => key, :values => value.collect{|v| v[:values]} }
       end
 
+   attributes = [{"name" => "No Relationships","name" => "No Relationships","values" => [{"id" => "#{params[:id]}","name" => "No Relationships "}]}] if attributes.empty?
+
     @node = {:details_html => "<h2>Neo ID: #{node_id(node)}</h2>\n<p class='summary'>\n#{get_properties(node)}</p>\n",
-              :data => {:attributes => attributes,
+              :data => {:attributes => attributes, 
                         :name => node["data"]["name"],
                         :id => node_id(node)}
             }

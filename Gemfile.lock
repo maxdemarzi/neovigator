@@ -7,7 +7,7 @@ GEM
     httparty (0.7.8)
       crack (= 0.1.8)
     json (1.6.4)
-    neography (0.0.19)
+    neography (0.0.18)
       httparty (= 0.7.8)
       json
       os
@@ -40,7 +40,7 @@ PLATFORMS
 DEPENDENCIES
   haml
   json
-  neography
+  neography (= 0.0.18)
   net-http-spy
   rack-test
   rspec

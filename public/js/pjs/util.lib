@@ -1,0 +1,38 @@
+// Adds support for a quadratic Bézier curve by converting it 
+// to a cubic Bézier curve that is supported by Processing.js.
+// prevX and prevY are used to get the previous x,y of the current path  
+p.quadraticBezierVertex = function(cpx, cpy, x, y) {
+  var cp1x = prevX + 2.0/3.0*(cpx - prevX);
+  var cp1y = prevY + 2.0/3.0*(cpy - prevY);
+  var cp2x = cp1x + (x - prevX)/3.0;
+  var cp2y = cp1y + (y - prevY)/3.0;
+
+  // and now call cubic Bezier curve to function
+  p.bezierVertex(cp1x, cp1y, cp2x, cp2y, x, y);
+};
+
+p.roundedRect = function(x, y, w, h, r) {
+  p.beginShape();
+  p.vertex(x+r, y);
+  p.vertex(x+w-r, y);
+  p.quadraticBezierVertex(x+w, y, x+w, y+r);
+  p.vertex(x+w, y+h-r);
+  p.quadraticBezierVertex(x+w, y+h, x+w-r, y+h);
+  p.vertex(x+r, y+h);
+  p.quadraticBezierVertex(x, y+h, x, y+h-r);
+  p.vertex(x, y+r);
+  p.quadraticBezierVertex(x, y, x+r, y);
+  p.endShape();
+};
+
+p.arrow = function(x1, y1, x2, y2, length) {
+  p.line(x1, y1, x2, y2);
+  
+  p.pushMatrix();
+  p.translate(x2, y2);
+  var a = p.atan2(x1-x2, y2-y1);
+  p.rotate(a);
+  p.line(0, 0, -length, -length);
+  p.line(0, 0, length, -length);
+  p.popMatrix();
+};

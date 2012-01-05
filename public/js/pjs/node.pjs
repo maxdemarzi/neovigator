@@ -14,7 +14,7 @@ class Node {
   public void setGraph(Graph g) {
     this.g = g;
 		this.ps = g.ps;
-		this.p = ps.makeParticle(1.0,300,200,0);
+		this.p = ps.makeParticle(1.0,window.innerWidth/2+150,window.innerHeight/2,0);
   }
 	
 	public Object getSubject() {
@@ -55,6 +55,10 @@ class Node {
 
   public ArrayList getIncomingEdges() {
     return g.getIncomingEdges(this);
+  }
+  
+  public ArrayList getEdges() {
+    // apend incoming an outgoing edges
   }
 
   public Particle getParticle() {

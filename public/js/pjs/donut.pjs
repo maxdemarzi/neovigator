@@ -1,0 +1,346 @@
+float EPSILON = TWO_PI/100; // tolerance for applying angleAdjustment
+
+public class DonutSlice {
+  Object subject;
+  
+  boolean hovering = false;
+  
+  DonutSegment seg;
+  
+  float angleStart;
+  float angleStop;
+  
+  public DonutSlice(Object subject, DonutSegment seg) {
+		this.subject = subject;
+		this.seg = seg;
+	}
+	
+	public void update() {
+	  // patched by DonutSegment#update() for now
+	}
+	
+	public void draw() {
+		float radius = seg.donut.radius;
+    stroke(255, 255, 255, 100);
+    strokeWeight(1);
+    
+    // TODO: if (this===seg.slices[seg.slices.size()-1])
+    line(this.seg.donut.x+cos(this.angleStop)*(radius-seg.relativeBreadth()/2), this.seg.donut.y+sin(this.angleStop)*(radius-seg.relativeBreadth()/2), this.seg.donut.x+cos(this.angleStop)*(radius+seg.relativeBreadth()/2), this.seg.donut.y+sin(this.angleStop)*(radius+seg.relativeBreadth()/2));
+    
+    // highlight selectedSlice
+    if (this.hovering) {
+      curContext.lineCap = "butt"; // processing.js patch!
+      noFill();
+      stroke(0,0,0,20);
+      strokeWeight(seg.relativeBreadth());
+      arc(seg.donut.x, seg.donut.y, seg.donut.radius*2, seg.donut.radius*2, angleStart, angleStop);
+    }
+    
+    noStroke();
+		strokeWeight(0); // reset
+		
+    if (seg.donut.selectedSegment===this.seg && !seg.fan.isPlaying() && seg.donut.selectedSlice.hovering) {
+     float theta = ((this.angleStart+this.angleStop) / 2)%TWO_PI+0.05;
+     float angle = theta;
+     
+//     curContext.font = "13.1px Courier";
+
+     curContext.textAlign = "left";
+     if (theta > PI/2 && theta < (PI+PI/2)-0.05) {
+       fWidth = curContext.measureText(this.subject.getName()).width;
+       angle -= 0.05;
+     } else
+       fWidth = 0;
+    
+     pushMatrix();
+     translate(seg.donut.x, seg.donut.y);
+     rotate(angle);
+     pushMatrix();
+     translate(seg.donut.radius+50+fWidth,0);
+     if (this.hovering)
+       fill(HIGHLIGHTED_LABEL_COLOR);
+     else
+       fill(LABEL_COLOR);
+
+     pushMatrix();
+     if (theta > PI/2 && theta < (PI+PI/2)-0.05) {
+       rotate(PI);
+     }
+     curContext.fillText(this.subject.getName(), 0, 0);
+     popMatrix();
+     popMatrix();
+     popMatrix();
+    }
+	}
+	
+	public boolean checkSelected() {
+    float disX = mouseX - seg.donut.x;
+    float disY = mouseY - seg.donut.y;
+    
+    // calculate polar coordinates
+    float r = Math.sqrt(sq(disX)+sq(disY));
+    float angle = atan2(disY, disX);
+    if (angle<0) angle = TWO_PI+angle; // shift to 0-TWO_PI interval
+    
+    float start = this.angleStart % TWO_PI;
+    float stop = this.angleStop % TWO_PI;
+        
+    if (r >= seg.donut.radius-seg.relativeBreadth()/2 && r <= seg.donut.radius+seg.relativeBreadth()/2 && 
+        ((angle>start && angle<stop) || (start>stop && (angle > start || angle < stop)) )) {
+      
+      seg.donut.setSelectedSlice(this);
+      // return true
+      subject.hovering = hovering = true;
+    } else {
+      subject.hovering = hovering = false;
+    }
+
+    if (seg.donut.totalSlices()==1) {
+      seg.donut.setSelectedSlice(this);
+      subject.hovering = hovering = true;
+    }
+
+    return subject.hovering;
+  }
+}
+
+public class DonutSegment {
+  
+  float weight;
+  float angleStart;
+  float angleStop;
+  float breadth = STROKE_WEIGHT_COLLAPSED;
+  Donut donut;
+  Object subject;
+  
+  ArrayList slices;
+  color col;
+  Tween fan;
+  Tween breadthTween;
+  
+  public DonutSegment(Subject subject, Donut donut) {
+    this.donut = donut;
+    this.subject = subject;
+    this.slices = new ArrayList();
+    
+    this.weight = 1.0;
+    this.fan = new Tween(this, "weight", Tween.strongEaseInOut, 1.0, 3.0, 0.8);
+    this.breadthTween = new Tween(this, "breadth", Tween.strongEaseInOut, STROKE_WEIGHT_COLLAPSED, STROKE_WEIGHT_EXPANDED, 0.8);
+  }
+  
+  // the resulting share of the segment (in percent)
+  public float share() {
+    return (slices.size()/donut.totalSlices()); // the share of total slices
+  }
+  
+  // the weighted share of the segment in respect of the segment's weight (in percent)
+  public float weightedShare() {
+    return share()*weight/donut.totalWeight();
+  }
+  
+  // the resulting size of the segment (in radiants)
+  public float amount() {
+    return (TWO_PI)*weightedShare();
+  }
+  
+  public void update() {
+    // update local angleStart, angleStop using the shared angleOffset
+    this.angleStart = donut.angleOffset;
+    
+    float amount = this.amount();
+    float tmp = this.angleStart;
+    for (int i=0; i<slices.size(); i++) {
+      // TODO: delegate the work to DonutSlice#update() -> slices[i].update();
+      slices[i].angleStart = tmp;
+      slices[i].angleStop = tmp+=amount/slices.size();
+    }
+    
+    this.angleStop = donut.angleOffset+=amount;
+  }
+  
+  public void draw() {
+    
+    // processing.js patch!
+    curContext.lineCap = "butt";
+    fill(DONUT_BACKGROUND);
+    noStroke();
+    
+    noFill();
+    stroke(DONUT_BACKGROUND);
+    strokeWeight(relativeBreadth());
+    
+    curContext.globalAlpha = 1.0;
+    arc(donut.x, donut.y, (donut.radius+OUTER_BORDER)*2, (donut.radius+OUTER_BORDER)*2, this.angleStart, this.angleStop);
+    curContext.globalAlpha = donut.alpha;
+    
+    stroke(col);
+    
+    arc(donut.x, donut.y, donut.radius*2, donut.radius*2, this.angleStart, this.angleStop);
+    
+    curContext.textAlign = "center";
+    if (this===donut.selectedSegment && donut.showLabels) {
+      fill(col);
+       curContext.font = "40px GraublauWeb";
+       curContext.fillText(this.slices.size(), donut.x, donut.y+15);
+       
+       curContext.font = "20px GraublauWeb";
+       curContext.fillText("Relationships", donut.x, donut.y+40);
+
+      curContext.font = "20px GraublauWeb";
+      curContext.fillText(this.subject.getName(), donut.x, donut.y-25, 120);
+
+      noStroke();
+      //ellipse(donut.x, donut.y, 14, 14);
+    }
+
+    // draw slices
+    for (int i=0; i<slices.size(); i++) {
+      slices[i].draw();
+    }
+  }
+  
+  // ASKKEN specific use breadth relative to current radius
+  public float relativeBreadth() {
+    return (donut.radius/RADIUS_OPENED)*this.breadth;
+  }
+  
+  // start expanding tween
+  public void expand() {
+    this.fan.continueTo(3.0, 0.8);
+    this.breadthTween.continueTo(STROKE_WEIGHT_EXPANDED, 0.8);
+  }
+  
+  // start contracting tween
+  public void contract() {
+    this.fan.continueTo(1.0, 0.8);
+    this.breadthTween.continueTo(STROKE_WEIGHT_COLLAPSED, 0.8);
+  }
+  
+  public void addSlice(Object subject) {
+    slices.add(new DonutSlice(subject, this));
+  }
+}
+
+public class Donut {
+  float x;
+  float y;
+  float radius;
+  
+  float alpha; // askken-specific
+  
+  float angleOffset = 0.0;
+  ArrayList segments;
+  int colorCount = 0;
+  DonutSegment selectedSegment = null;
+  DonutSlice selectedSlice = null;
+  float angleAdjustment = 0.0;
+  boolean opened = true;
+  boolean showLabels = false;
+  
+  // callbacks TODO: clean this up!
+  Object segmentChanged = function() {};
+  
+  public Donut(float x, float y, float r) {
+    this.x = x;
+    this.y = y;
+    this.radius = r;
+    this.segments = new ArrayList();    
+  }
+  
+  public setSelectedSlice(DonutSlice s) {
+    this.selectedSlice = s;
+    
+    if (s.seg != this.selectedSegment) {
+      if (this.selectedSegment!=null) {
+        this.selectedSegment.contract();
+      }
+      
+      this.selectedSegment = s.seg;
+      this.selectedSegment.expand();
+      this.segmentChanged();
+    }
+  }
+    
+  public void update() {
+    this.angleAdjustment = 0.0;
+    this.angleOffset = 0.0;
+    
+    
+    if (selectedSlice != null) {
+      float targetAngle = (selectedSlice.angleStart+selectedSlice.angleStop) / 2;
+    }
+
+    // perform tweens first
+    for (int i=0; i < segments.size(); i++) {
+      segments[i].fan.tick();
+      segments[i].breadthTween.tick();
+    }
+    
+    // then update the values
+    for (int i=0; i < segments.size(); i++) {
+      segments[i].update();
+    }
+    
+    if (selectedSlice != null) {
+      float offset = targetAngle-((selectedSlice.angleStart+selectedSlice.angleStop) / 2);
+      
+      if (Math.abs(offset)>EPSILON) {
+        float targetAdjustment = this.angleAdjustment+offset;
+        if (targetAdjustment<0) {
+          targetAdjustment = TWO_PI - targetAdjustment;
+        }
+      
+        this.angleAdjustment = targetAdjustment;
+      }
+    }
+    
+    // recalc again if angleAdjustment is needed.
+    if (angleAdjustment>0) {
+      this.angleOffset = this.angleAdjustment;
+      for (int i=0; i < segments.size(); i++) {
+        segments[i].update();
+      }
+    }
+  }
+  
+  /* this method is probably called to often. 
+  /* maybe that's what slows down the expand/contract tweening */
+  public float totalWeight() {
+    float sum = 0.0;
+    for (int i=0; i < segments.size(); i++) {
+      sum += segments[i].weight*segments[i].share();
+    }
+    return sum;
+  }
+  
+  public float totalSlices() {
+    int sum = 0;
+    for (int i=0; i < segments.size(); i++) {
+      sum += segments[i].slices.size();
+    }
+    return sum;
+  }
+  
+  public void draw() {
+    noStroke();
+    
+		// inner spacer
+    fill(DONUT_BACKGROUND);
+    ellipse(this.x, this.y, radius*2, radius*2);
+    
+    curContext.globalAlpha = this.alpha;
+		// draw attributes
+		for (int i = 0 ; i < segments.size(); i++) {
+			segments[i].draw();
+		}
+		curContext.globalAlpha = 1.0;
+  }
+  
+  public void addSegment(DonutSegment s) {
+    s.col = colors[colorCount%11]; // assign a color
+    if (colorCount==0)
+      setSelectedSlice(s.slices[0]);
+    segments.add(s);
+    colorCount += 2;
+  }
+}

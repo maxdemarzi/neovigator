@@ -197,11 +197,9 @@ public class ModifiedEulerIntegrator
 }
 
 
-
 /***************************************************************
 /* RungeKuttaIntegrator
 /**************************************************************/
-
 
 public class RungeKuttaIntegrator
 {	
@@ -957,27 +955,33 @@ public class ParticleSystem
   
   public void removeParticle( Particle p )
   {
-	  particles.remove( p );
+    var idx = $.inArray(p, particles);
+    if (idx>=0)
+	    particles.remove(idx);
   }
   
-  public Spring removeSpring( int i )
+  // public Spring removeSpring( int i )
+  // {
+  //    return springs.remove( i );
+  // }
+  
+  // public Attraction removeAttraction( int i  )
+  // {
+  //    return attractions.remove( i );
+  // }
+  
+  public void removeAttraction( Attraction a )
   {
-	  return springs.remove( i );
+    var idx = $.inArray(a, attractions);
+    if (idx>=0)
+	    attractions.remove(idx);
   }
   
-  public Attraction removeAttraction( int i  )
+  public void removeSpring( Spring s )
   {
-	  return attractions.remove( i );
-  }
-  
-  public void removeAttraction( Attraction s )
-  {
-	  attractions.remove( s );
-  }
-  
-  public void removeSpring( Spring a )
-  {
-	  springs.remove( a );
+    var idx = $.inArray(s, springs);
+    if (idx>=0)
+	    springs.remove(idx);
   }
   
   public void removeCustomForce( Force f )

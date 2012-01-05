@@ -1,0 +1,6 @@
+.project
+neo4j
+pkg/*
+*.gem
+.bundle
+log/*

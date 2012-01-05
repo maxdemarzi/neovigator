@@ -2,11 +2,10 @@
 %html
   %head
     %link(rel="stylesheet" href="/css/global.css")
-    %script{:src => "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"}
-    %script{:src => "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.2/jquery-ui.min.js"}
-    / %script{:src => "/js/processing-1.0.0.min.js"} 
+    %script{:src => "http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"}
+    %script{:src => "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.min.js"}
+    %script{:src => "/js/ui.js"}
     %script{:src => "/js/processing.min.js"} 
-    %script{:src => '/js/freebase.suggest.min.js'}
 
     %title Neovigator
 
@@ -41,12 +40,11 @@
         %p
           Start using the browser by just typing in the id of an existing node.
           You can see the available nodes at
-          %a{:href => "http://neography.org", :target => "_blank" } Neography.org  
+          %a{:href => "http://localhost:7474", :target => "_blank" } http://localhost:7474  
           , try loading
-          %a{:href => "/?neoid=2"} 
-            %b Node 2
-          to get started.  Feel free to create more nodes and relationships using 
-          %a{:href => "https://github.com/maxdemarzi/neography"} Neography.  
+          %a{:href => "/?neoid=1"} 
+            %b Node 1
+          to get started.    
         %h3 Quirks
         %p
           There may be some unexpected behavior. Performance may drop significantly as
@@ -67,7 +65,7 @@
     %footer
       .left
         Created by
-        %a{:href => "http://twitter.com/maxdemarzi"} Max De Marzi
+        %a{:href => "http://maxdemarzi.com"} Max De Marzi
       .right
         using 
         %a{:href => "http://neo4j.org", :target => "_blank"} Neo4j

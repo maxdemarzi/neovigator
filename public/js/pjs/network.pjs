@@ -1,3 +1,6 @@
+import( '/js/pjs/Tween.lib' );
+import( '/js/pjs/util.lib' );
+
 color[] colors = new color[12];
 
 colors[0] = color(171, 199, 49);
@@ -13,8 +16,22 @@ colors[9] = color(131, 127, 67);
 colors[10] = color(144, 150, 60);
 colors[11] = color(157, 175, 55);
 
+color LABEL_COLOR = color(150);
+color HIGHLIGHTED_LABEL_COLOR = color(55);
+color DONUT_BACKGROUND = color(255);
+color BACKGROUND = color(234,239,224);
+
+// global constants
+float STROKE_WEIGHT_COLLAPSED = 50;
+float STROKE_WEIGHT_EXPANDED = 60;
+float OUTER_BORDER = 5;
+
+float RADIUS_OPENED = 110;
+float RADIUS_CLOSED = 50;
+
+
 PFont defaultFont = loadFont("/fonts/GraublauWeb-Regular.svg");
-PFont boldFont = loadFont("/fonts/GraublauWeb-Bold.svg");
+
 int fontSize = 11.3;
 int fontSizeCaption = 16;
 
@@ -23,8 +40,8 @@ int nodeCount = 0;
 Resource fetchResource(String resourceId) {
   // init dummy resource
   Resource resource = new Resource(resourceId, "", "");
+	nodeCount++;
 	resource.idx = nodeCount;
-  nodeCount++;
   resource.fetchData(); // start fetching data from freebase
 	return resource;
 }
@@ -32,43 +49,35 @@ Resource fetchResource(String resourceId) {
 Graph g;
 Resource r;
 
-float NODE_SIZE = 10;
-float EDGE_LENGTH = 20;
-float EDGE_STRENGTH = 0.2;
-float SPACER_STRENGTH = 1000;
-
-int selectedValueIndex;
-int selectedNodeIndex;
+int selectedEdgeIndex = null;
 
 void resize() {
 	size(window.innerWidth-10, window.innerHeight-15);
 }
 
 void setup() {	
-	g = new Graph();
-	// Activate font for output
+	myGraph = g = new Graph();
+	// myGraph exposes the graph to the outside world
 	textFont(defaultFont, fontSize);
-
+  nodeCount = 0;
   resize();
   fill(0);
   smooth();
   frameRate(30);
-	background(234,239,224);
+	background(BACKGROUND);
 
 	if (resourceId) {
 		r = fetchResource(resourceId);
-		
-		
 		g.addNode(root = new Node(r));
-		g.setSelectedNode(root);
-		$('aside').html(r.html);
+		g.selectedNode = root;
+		$('#details').html(r.html);
 	}
 }
 
 void draw() {
   if (g.nodes.size()>0) {
     g.tick();
-    background(234,239,224);
+    background(BACKGROUND);
     g.draw();
   }
 }
@@ -76,109 +85,85 @@ void draw() {
 void mouseMoved() {
 	if (!resourceId) return;
 	
-	if (g.getDragNode()==null) {
-		Resource r = g.getSelectedNode().getSubject();
-		ArrayList values = r.getValues();
-		Attribute oldSelectedAttribute = r.getSelectedAttribute();
-		int oldValueIndex = selectedValueIndex;
-		selectedValueIndex = null;
-		
-		// Iterate over values
-		for (int i = 0; i < values.size(); i++) {
-			if (values[i].mouseOver()) {
-				selectedValueIndex = i;
-			}
-		}
-		
-		if (selectedValueIndex!=null) {
-			if (oldSelectedAttribute != r.getSelectedAttribute()) {								
-				float offset = 0;
-				if (selectedValueIndex != null) {
-					
-					if (r.previousSelectedAttribute!=null) r.previousSelectedAttribute.weight = 1.0;
-					r.selectedAttribute.weight = 4.0;
-					// r.transitioning = true;
-					float targetAngle = (values[selectedValueIndex].angleStart +values[selectedValueIndex].angleStop) / 2;
-					if (oldSelectedAttribute!=null) oldSelectedAttribute.targetWeight = 1.0;
-					r.getSelectedAttribute().targetWeight = 4.0;
-					
-					r.update();
-					currentAngle = (r.getValues()[selectedValueIndex].angleStart +r.getValues()[selectedValueIndex].angleStop) / 2
-					
-					offset = targetAngle-currentAngle;
-					float targetAdjustment = r.angleAdjustment+offset;
-					if (targetAdjustment<0) {
-						targetAdjustment = TWO_PI - targetAdjustment;
-					}
-					r.setAngleAdjustment(targetAdjustment);
-				}				
-			}
-		}
-		
-		if (selectedValueIndex==null && r.selectedAttribute!=null) {
-			// r.selectedAttribute.weight = 1.0;
-			// r.setSelectedAttribute(null);
-		}
-		
-		selectedNodeIndex = null;
+	if (!g.isDragging()) {
+		Resource r = g.selectedNode.subject;
+		r.checkSelected();
+		    
+    g.checkSelected(); // checkDragged
+  
+		selectedEdgeIndex = null;
 		// Iterate over nodes
-		for (int i=0; i< g.nodes.size(); i++) {
-			if (g.nodes[i].mouseOver()) {
-				selectedNodeIndex = i;
+		for (int i=0; i< g.edges.size(); i++) {
+			if (g.edges[i].mouseOver()) {
+				selectedEdgeIndex = i;
 			}
 		}
 	}
 }
+
+
+
+
+
+void addNode(Value val) {
+  Resource r = g.selectedNode.subject;
+	Node n = g.getNodeById(val.getId());
+	
+	// close current resource
+	r.setClosed();
+  
+  DonutSegment seg = r.donut.selectedSegment;
+
+  if (!n) { // not found
+    Resource r2 = fetchResource(val.getId());
+		g.addNode(newNode = new Node(r2));
+		g.addEdge(new Edge(g.selectedNode, newNode, seg));
+		g.setSelectedNode(newNode);
+	} else {
+		g.addEdge(new Edge(g.selectedNode, n, seg));
+		g.setSelectedNode(n);
+		g.selectedNode.subject.setOpen();
+	}
+}
+
+
+
+
 
 void mousePressed() {
+  
+  // ->> g.checkSelected()
+  // g.checkSelected(); // updates g.selectedNode if necessary
+  
+  if (g.dragNode!==g.selectedNode && g.dragNode!=null) {
+    g.selectNode(g.dragNode);
+    
+    return; // that's all
+  }
+
+  Resource r = g.selectedNode.subject;
+
 	if (!resourceId) return;
   if (mouseButton == LEFT) {
-		Node selectedNode = g.getSelectedNode();
-		Resource r = selectedNode.getSubject();
+		Resource r = g.selectedNode.subject;
+		Value selectedValue = r.getSelectedValue();
 		
-		if (selectedValueIndex != null) {
-			// Close current resource
-			r.setClosed();
-			r2 = fetchResource(r.getValues()[selectedValueIndex].getId());
-			
-			// Check if resource already exists
-	    int i = 0; Node n = null;
-	    while (i < g.nodes.size() && !n) {
-				if (g.nodes[i].getSubject().getId()==r2.getId())
-					n = g.nodes[i];
-	      i++;
-	    }
-
-	    if (!n) {
-				g.addNode(newNode = new Node(r2));
-				g.addEdge(new Edge(selectedNode, newNode));
-				g.setSelectedNode(newNode);
-				
-			} else {
-				g.addEdge(new Edge(selectedNode, n));
-				g.setSelectedNode(g.nodes[0]);
-			}
-			
-		} else if (selectedNodeIndex != null) {
-			// TODO: Zoom to node
-			selectedNode = g.nodes[selectedNodeIndex];
-			g.setDragNode(selectedNode);
-			if (g.getSelectedNode()!=selectedNode) {
-  			r.setClosed();
-  			selectedNode.getSubject().setOpen();
-  			$('aside').html(selectedNode.getSubject().html);
-  			g.setSelectedNode(selectedNode);
-			}
+		if (selectedValue !== null && selectedValue.hovering) {
+		  addNode(selectedValue);
+		} else if (g.selectedNode != null) {
+		  g.dragging = true;
 		}
-				
   } else { // Right click
-		Node selectedNode = g.getSelectedNode();
-		Resource r = selectedNode.getSubject();
+		// removes resource from graph
+		Resource r = g.selectedNode.subject;
+		g.removeNode(g.selectedNode);
+		g.selectedNode = g.nodes[0];
 	}
 }
 
+
 void mouseReleased() {
-  g.setDragNode(null);
+  g.dragging = false;
 }
 
 void mouseDragged() {

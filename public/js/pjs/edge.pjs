@@ -3,12 +3,22 @@
 /**************************************************************/
 
 class Edge {
+  boolean hovering = false;
   Node from;
   Node to;
+  Object subject;
+  
+  float radius = 30;
+  
+  float x1 = 0;
+  float x2 = 0;
+  float y1 = 0;
+  float y2 = 0;
 
-  public Edge(Node from, Node to) {
+  public Edge(Node from, Node to, Object subject) {
     this.from = from;
     this.to = to;
+    this.subject = subject;
   }
   
   public Node getFrom() {
@@ -18,4 +28,87 @@ class Edge {
   public Node getTo() {
     return to;
   }
+  
+  public void update() {
+    // original positions
+    float ox1 = from.getParticle().position().x;
+    float ox2 = to.getParticle().position().x;
+    float oy1 = from.getParticle().position().y;
+    float oy2 = to.getParticle().position().y;
+    
+    float wx = ox2-ox1;
+    float wy = oy2-oy1;
+    
+    float ww = sqrt(wx*wx+wy*wy); // calculates the vectors amount
+    
+    // calculate relative values for arrows
+    x1 = ox1+wx*((from.getSubject().currentRadius()-10)/ww);
+    y1 = oy1+wy*((from.getSubject().currentRadius()-10)/ww);
+    
+    x2 = ox2-wx*((to.getSubject().currentRadius()+5)/ww);
+    y2 = oy2-wy*((to.getSubject().currentRadius()+5)/ww);
+
+
+  }
+  
+  public void draw() {
+    stroke(255);
+    
+    if (hovering)
+      fill(255);
+    else
+      fill(this.subject.col);
+
+    strokeWeight(4);
+    
+    if (this.subject.subject.getName()[0] == "O")
+      arrow(x1, y1, x2, y2, 7);  // Outgoing Arrows
+    else
+      arrow(x2, y2, x1, y1, 17);    // Incoming Arrows
+     
+    // noStroke();
+    ellipse(centerX(), centerY(), 20, 20);
+
+    textFont(defaultFont, 13);
+
+    fill(255);
+    text(this.subject.subject.getName()[0], centerX()-3, centerY()-8);
+		// fontWidth = defaultFont.width((idx+1)+". "+this.getName()) * fontSize;
+		//    text((idx+1)+". "+this.getName(), this.x-fontWidth/2, this.y+10+labelOffset+30);
+		textFont(defaultFont, fontSize);
+  }
+  
+  public void drawLabel() {
+    textFont(defaultFont, 13);
+    fill(255);
+    noStroke();
+    rect(centerX()-3, centerY()-12, 200, 24);
+  
+    fill(100);
+    text(this.subject.subject.getName(), centerX()-3, centerY()-8);
+		// fontWidth = defaultFont.width((idx+1)+". "+this.getName()) * fontSize;
+		//    text((idx+1)+". "+this.getName(), this.x-fontWidth/2, this.y+10+labelOffset+30);
+		textFont(defaultFont, fontSize);
+  }
+  
+  public void centerX() {
+    return x1 + 0.5*(x2-x1);
+  }
+  
+  public void centerY() {
+    return y1 + 0.5*(y2-y1);
+  }
+  
+  public boolean mouseOver() {
+	  float disX = centerX() - mouseX;
+	  float disY = centerY() - mouseY;
+		
+	  if(sqrt(sq(disX) + sq(disY)) < radius/2 ) {
+			hovering = true;
+	    return true;
+		} else {
+			hovering = false;
+			return false;
+		}
+	}
 }
