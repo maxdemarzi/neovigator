@@ -12,7 +12,8 @@ to get Neo4j installed, started, and populate it with some nodes and relationshi
   bundle install
   rackup
   
-Then visit {localhost://9292}[localhost://9292] to see it running.
+Then visit {http://localhost://9292}[http://localhost://9292 to see it running.
+
 Enter a node id in the text box and click "Load"
 
 See an example running on heroku at {http://neovigator.herokuapp.com}[http://neovigator.herokuapp.com]
