@@ -8,12 +8,8 @@ class Neovigator < Sinatra::Application
   set :app_file, __FILE__
 
   configure :test do
-     require 'net-http-spy'
-     Net::HTTP.http_logger_options = {:verbose => true} 
-  end
-
-  before do
-    @neo = Neography::Rest.new
+    require 'net-http-spy'
+    Net::HTTP.http_logger_options = {:verbose => true} 
   end
 
   helpers do
@@ -21,6 +17,10 @@ class Neovigator < Sinatra::Application
       attributes = ""
       opts.each { |key,value| attributes << key.to_s << "=\"" << value << "\" "}
       "<a href=\"#{url}\" #{attributes}>#{text}</a>"
+    end
+
+    def neo
+      @neo ||= ENV['NEO4J_URL'].nil? ? Neography::Rest.new : Neography::Rest.new(ENV['NEO4J_URL'])
     end
   end
 
@@ -53,8 +53,8 @@ class Neovigator < Sinatra::Application
   get '/resources/show' do
     content_type :json
 
-    node = @neo.get_node(params[:id]) 
-    connections = @neo.traverse(node, "fullpath", neighbours)
+    node = neo.get_node(params[:id]) 
+    connections = neo.traverse(node, "fullpath", neighbours)
     incoming = Hash.new{|h, k| h[k] = []}
     outgoing = Hash.new{|h, k| h[k] = []}
     nodes = Hash.new
