@@ -8,29 +8,7 @@
     src: url(/fonts/GraublauWebBold.otf) format("truetype");
 }
 
-header, footer, section, nav { display:block; }
-
-footer {
-	margin-top: 5px;
-	padding: 10px;
-	position: absolute;
-	bottom: 5px;
-	left: 5px;
-	right: 10px;
-	font-family: GraublauWeb, "Helvetica Neue", Helvetica, Arial, sans-serif;
-	font-size: 12px;
-	line-height: 1.4;
-	/* clearing */
-	overflow: auto;
-}
-
-footer .left {
-	float: left;
-}
-
-footer .right {
-	float: right;
-}
+header, section, nav { display:block; }
 
 .left {
   float: left;
