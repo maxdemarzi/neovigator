@@ -7,10 +7,11 @@ GEM
     httparty (0.7.8)
       crack (= 0.1.8)
     json (1.6.4)
-    neography (0.0.18)
-      httparty (= 0.7.8)
+    neography (0.0.20)
+      httparty (~> 0.7.8)
       json
       os
+      rake (>= 0.8.7)
       rubyzip
     net-http-spy (0.2.1)
     os (0.9.5)
@@ -19,6 +20,7 @@ GEM
       rack
     rack-test (0.6.1)
       rack (>= 1.0)
+    rake (0.9.2.2)
     rspec (2.8.0)
       rspec-core (~> 2.8.0)
       rspec-expectations (~> 2.8.0)
@@ -40,7 +42,7 @@ PLATFORMS
 DEPENDENCIES
   haml
   json
-  neography (= 0.0.18)
+  neography
   net-http-spy
   rack-test
   rspec
