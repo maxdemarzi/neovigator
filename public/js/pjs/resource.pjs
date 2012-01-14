@@ -137,7 +137,7 @@ public class Resource {
         that.name = response.data.name;
         that.html = response.details_html;
         
-        $('#sidebar-content').html(response.details_html);
+        $('#explanation').html(response.details_html);
         int numValues = 0;
         for (int i = 0; i < response.data.attributes.length(); i++) {
          Attribute attr = new Attribute(response.data.attributes[i].id, response.data.attributes[i].name, that);
