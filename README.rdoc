@@ -9,10 +9,12 @@ to get Neo4j installed, started, and populate it with some nodes and relationshi
 
   git clone git@github.com:maxdemarzi/neovigator.git
   cd neovigator
-  bundle install
+  bundle
+  rake neo4j:install
+  rake neo4j:start
   rackup
   
-Then visit http://localhost:9292 to see it running.
+Then visit http://localhost:9292 to see it running.  The first time you visit the page, it will create a sample graph.
 
 Enter a node id in the text box and click "Load"
 

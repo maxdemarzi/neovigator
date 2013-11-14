@@ -23,37 +23,77 @@ class Neovigator < Sinatra::Application
       @neo = Neography::Rest.new(ENV['NEO4J_URL'] || "http://localhost:7474")
     end
   end
+  
+  def hashify(results)
+    results["data"].map {|row| Hash[*results["columns"].zip(row).flatten] }
+  end
 
   def create_graph
-    graph_exists = neo.get_node_properties(1)
-    return if graph_exists && graph_exists['name']
+    return if neo.execute_query("start n = node(*) return count(n)")["data"].first.first > 1
 
-    johnathan = create_person('Johnathan')
-    mark      = create_person('Mark')
-    phil      = create_person('Phil')
-    mary      = create_person('Mary')
-    luke      = create_person('Luke')
-    make_mutual(johnathan, mark, "friends")
-    make_mutual(mark, mary, "friends")
-    make_mutual(mark, phil, "friends")
-    make_mutual(phil, mary, "married")
-    make_mutual(phil, luke, "enemies")
+    guys = %w[Adrian Ben Carl Darrel Elliott Felix Gary Harley Ian Jason Keith Lance Marco Ned Otto Pablo Quentin Rocky Sheldon Ted Ulysses Val Warren Young Zack]
+    girls = %w[Alesha Bethany Carrie Darcey Emely Frida Gabrielle Helene Isabelle Jacqualine Katheryn Lora Megan Nathalie Olivia Patricia Rachael Shanon Tiffany Vannessa Wendie Xuan Yolonda Zofia]
+    cities = %w[Austin Baltimore Charlotte Chicago Dallas Detroit Miami Oakland Philadelphia Wichita]
+    attributes = %w[Able Accepting Adventurous Aggressive Ambitious Annoying Arrogant Articulate Athletic Awkward Boastful Bold Bossy Brave Bright Busy Calm Careful Careless Caring Cautious Cheerful Clever Clumsy Compassionate Complex Conceited Confident Considerate Cooperative Courageous Creative Curious Dainty Daring Dark Defiant Demanding Determined Devout Disagreeable Disgruntled Dreamer Eager Efficient Embarrassed Energetic Excited Expert Fair Faithful Fancy Fighter Forgiving Free Friendly Friendly Frustrated Fun-loving Funny Generous Gentle Giving Gorgeous Gracious Grouchy Handsome Happy Hard-working Helpful Honest Hopeful                            Humble Humorous Imaginative Impulsive Independent Intelligent Inventive Jealous Joyful Judgmental Keen Kind Knowledgeable Lazy Leader Light Light-hearted Likeable Lively Lovable Loving Loyal Manipulative Materialistic Mature Melancholy Merry Messy Mischievous Naïve Neat Nervous Noisy Obnoxious Opinionated Organized Outgoing Passive Patient Patriotic Perfectionist Personable Pitiful Plain Pleasant Pleasing Poor Popular Pretty Prim Proper Proud Questioning Quiet Radical Realistic Rebellious Reflective Relaxed Reliable Religious Reserved Respectful Responsible Reverent Rich Rigid Rude Sad Sarcastic Self-confident Self-conscious Selfish Sensible Sensitive Serious Short Shy Silly Simple Simple-minded Smart Stable Strong Stubborn Studious Successful Tall Tantalizing Tender Tense Thoughtful Thrilling Timid Tireless Tolerant Tough Tricky Trusting Ugly Understanding Unhappy Unique Unlucky Unselfish Vain Warm Wild Willing Wise Witty Zany]
+  
+    cypher = "CREATE (n {nodes}) RETURN  ID(n) AS id, n.name AS name"
+
+    nodes = []
+    guys.each { |n| nodes <<  {"name" => n, "gender" => "male"} }
+    girls.each { |n| nodes << {"name" => n, "gender" => "female"} }
+    users = hashify(neo.execute_query(cypher, {:nodes => nodes}))
+
+    nodes = []
+    cities.each { |n| nodes << {"name" => n} }
+    cities = hashify(neo.execute_query(cypher, {:nodes => nodes}))
+  
+    nodes = []  
+    attributes.each { |n| nodes << {"name" => n} }
+    attributes = hashify(neo.execute_query(cypher, {:nodes => nodes}))
+  
+    commands = []
+    users.each do |user| 
+      commands << [:add_node_to_index, "users_index", "name", user["name"], user["id"]]
+    end  
+    results = neo.batch *commands
+
+    commands = []
+    users.each do |user| 
+      commands << [:create_relationship, "lives_in", user["id"], cities.sample["id"], nil]    
+    end  
+    neo.batch *commands
+
+    users.each do |user| 
+      commands = []
+      users.sample(3 + rand(10)).each do |att|
+        commands << [:create_relationship, "friends", user["id"], att["id"], nil] unless (att["id"] == user["id"])   
+      end
+      neo.batch *commands
+    end  
+
+    users.each do |user| 
+      commands = []
+      attributes.sample(10 + rand(10)).each do |att|
+        commands << [:create_relationship, "has", user["id"], att["id"], nil]    
+      end
+      neo.batch *commands
+    end  
+
+    users.each do |user| 
+      commands = []
+      attributes.sample(10 + rand(10)).each do |att|
+        commands << [:create_relationship, "wants", user["id"], att["id"], nil]    
+      end
+      neo.batch *commands
+    end 
   end
 
-  def make_mutual(node1, node2, rel_type)
-    neo.create_relationship(rel_type, node1, node2)
-    neo.create_relationship(rel_type, node2, node1)
-  end
-
-  def create_person(name)
-    neo.create_node("name" => name)
-  end
-
-  def neighbours
-    {"order"         => "depth first",
-     "uniqueness"    => "none",
-     "return filter" => {"language" => "builtin", "name" => "all_but_start_node"},
-     "depth"         => 1}
+helpers do
+    def link_to(url, text=url, opts={})
+      attributes = ""
+      opts.each { |key,value| attributes << key.to_s << "=\"" << value << "\" "}
+      "<a href=\"#{url}\" #{attributes}>#{text}</a>"
+    end
   end
 
   def node_id(node)
@@ -69,54 +109,53 @@ class Neovigator < Sinatra::Application
 
   def get_properties(node)
     properties = "<ul>"
-    node["data"].each_pair do |key, value|
+    node.each_pair do |key, value|
+      if key == "avatar_url"
+        properties << "<li><img src='#{value}'></li>"
+      else
         properties << "<li><b>#{key}:</b> #{value}</li>"
       end
+    end
     properties + "</ul>"
   end
 
   get '/resources/show' do
     content_type :json
+    neo = Neography::Rest.new    
 
-    node = neo.get_node(params[:id]) 
-    connections = neo.traverse(node, "fullpath", neighbours)
-    incoming = Hash.new{|h, k| h[k] = []}
-    outgoing = Hash.new{|h, k| h[k] = []}
-    nodes = Hash.new
-    attributes = Array.new
+    cypher = "START me=node(#{params[:id]}) 
+              MATCH me -[r?]- related
+              RETURN me, r, related"
 
-    connections.each do |c|
-       c["nodes"].each do |n|
-         nodes[n["self"]] = n["data"]
-       end
-       rel = c["relationships"][0]
-
-       if rel["end"] == node["self"]
-         incoming["Incoming:#{rel["type"]}"] << {:values => nodes[rel["start"]].merge({:id => node_id(rel["start"]) }) }
-       else
-         outgoing["Outgoing:#{rel["type"]}"] << {:values => nodes[rel["end"]].merge({:id => node_id(rel["end"]) }) }
-       end
+    connections = neo.execute_query(cypher)["data"]   
+ 
+    me = connections[0][0]["data"]
+    
+    relationships = []
+    if connections[0][1]
+      connections.group_by{|group| group[1]["type"]}.each do |key,values| 
+        relationships <<  {:id => key, 
+                     :name => key,
+                     :values => values.collect{|n| n[2]["data"].merge({:id => node_id(n[2]) }) } }
+      end
     end
 
-      incoming.merge(outgoing).each_pair do |key, value|
-        attributes << {:id => key.split(':').last, :name => key, :values => value.collect{|v| v[:values]} }
-      end
+    relationships = [{"name" => "No Relationships","name" => "No Relationships","values" => [{"id" => "#{params[:id]}","name" => "No Relationships "}]}] if relationships.empty?
 
-   attributes = [{"name" => "No Relationships","name" => "No Relationships","values" => [{"id" => "#{params[:id]}","name" => "No Relationships "}]}] if attributes.empty?
-
-    @node = {:details_html => "<h2>Neo ID: #{node_id(node)}</h2>\n<p class='summary'>\n#{get_properties(node)}</p>\n",
-              :data => {:attributes => attributes, 
-                        :name => node["data"]["name"],
-                        :id => node_id(node)}
-            }
+    @node = {:details_html => "<h2>#{me["name"]}</h2>\n<p class='summary'>\n#{get_properties(me)}</p>\n",
+                :data => {:attributes => relationships, 
+                          :name => me["name"],
+                          :id => params[:id]}
+              }
 
     @node.to_json
+
 
   end
 
   get '/' do
     create_graph
-    @neoid = params["neoid"]
+    @neoid = params["neoid"] || 1
     haml :index
   end
 
