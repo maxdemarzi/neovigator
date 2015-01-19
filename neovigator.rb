@@ -117,7 +117,6 @@ helpers do
 
   get '/resources/show' do
     content_type :json
-    neo = Neography::Rest.new    
 
     cypher = "START me=node(#{params[:id]}) 
               OPTIONAL MATCH me -[r]- related
