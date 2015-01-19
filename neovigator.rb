@@ -20,7 +20,7 @@ class Neovigator < Sinatra::Application
     end
 
     def neo
-      @neo = Neography::Rest.new(ENV['NEO4J_URL'] || "http://localhost:7474")
+      @neo = Neography::Rest.new(ENV['GRAPHENEDB_URL'] || "http://localhost:7474")
     end
   end
   
@@ -29,14 +29,14 @@ class Neovigator < Sinatra::Application
   end
 
   def create_graph
-    return if neo.execute_query("start n = node(*) return count(n)")["data"].first.first > 1
+    return if neo.execute_query("MATCH (n:Person) RETURN COUNT(n)")["data"].first.first > 1
 
     guys = %w[Adrian Ben Carl Darrel Elliott Felix Gary Harley Ian Jason Keith Lance Marco Ned Otto Pablo Quentin Rocky Sheldon Ted Ulysses Val Warren Young Zack]
     girls = %w[Alesha Bethany Carrie Darcey Emely Frida Gabrielle Helene Isabelle Jacqualine Katheryn Lora Megan Nathalie Olivia Patricia Rachael Shanon Tiffany Vannessa Wendie Xuan Yolonda Zofia]
     cities = %w[Austin Baltimore Charlotte Chicago Dallas Detroit Miami Oakland Philadelphia Wichita]
     attributes = %w[Able Accepting Adventurous Aggressive Ambitious Annoying Arrogant Articulate Athletic Awkward Boastful Bold Bossy Brave Bright Busy Calm Careful Careless Caring Cautious Cheerful Clever Clumsy Compassionate Complex Conceited Confident Considerate Cooperative Courageous Creative Curious Dainty Daring Dark Defiant Demanding Determined Devout Disagreeable Disgruntled Dreamer Eager Efficient Embarrassed Energetic Excited Expert Fair Faithful Fancy Fighter Forgiving Free Friendly Friendly Frustrated Fun-loving Funny Generous Gentle Giving Gorgeous Gracious Grouchy Handsome Happy Hard-working Helpful Honest Hopeful Humble Humorous Imaginative Impulsive Independent Intelligent Inventive Jealous Joyful Judgmental Keen Kind Knowledgeable Lazy Leader Light Light-hearted Likeable Lively Lovable Loving Loyal Manipulative Materialistic Mature Melancholy Merry Messy Mischievous Naive Neat Nervous Noisy Obnoxious Opinionated Organized Outgoing Passive Patient Patriotic Perfectionist Personable Pitiful Plain Pleasant Pleasing Poor Popular Pretty Prim Proper Proud Questioning Quiet Radical Realistic Rebellious Reflective Relaxed Reliable Religious Reserved Respectful Responsible Reverent Rich Rigid Rude Sad Sarcastic Self-confident Self-conscious Selfish Sensible Sensitive Serious Short Shy Silly Simple Simple-minded Smart Stable Strong Stubborn Studious Successful Tall Tantalizing Tender Tense Thoughtful Thrilling Timid Tireless Tolerant Tough Tricky Trusting Ugly Understanding Unhappy Unique Unlucky Unselfish Vain Warm Wild Willing Wise Witty Zany]
   
-    cypher = "CREATE (n {nodes}) RETURN  ID(n) AS id, n.name AS name"
+    cypher = "CREATE (n:Person {nodes}) RETURN  ID(n) AS id, n.name AS name"
 
     nodes = []
     guys.each { |n| nodes <<  {"name" => n, "gender" => "male"} }
@@ -50,13 +50,9 @@ class Neovigator < Sinatra::Application
     nodes = []  
     attributes.each { |n| nodes << {"name" => n} }
     attributes = hashify(neo.execute_query(cypher, {:nodes => nodes}))
+    
+    neo.execute_query("CREATE INDEX ON :Person(name)")
   
-    commands = []
-    users.each do |user| 
-      commands << [:add_node_to_index, "users_index", "name", user["name"], user["id"]]
-    end  
-    results = neo.batch *commands
-
     commands = []
     users.each do |user| 
       commands << [:create_relationship, "lives_in", user["id"], cities.sample["id"], nil]    
@@ -140,7 +136,7 @@ helpers do
       end
     end
 
-    relationships = [{"name" => "No Relationships","name" => "No Relationships","values" => [{"id" => "#{params[:id]}","name" => "No Relationships "}]}] if relationships.empty?
+    relationships = [{"name" => "No Relationships","values" => [{"id" => "#{params[:id]}","name" => "No Relationships "}]}] if relationships.empty?
 
     @node = {:details_html => "<h2>#{me["name"]}</h2>\n<p class='summary'>\n#{get_properties(me)}</p>\n",
                 :data => {:attributes => relationships, 
