@@ -20,6 +20,21 @@ Enter a node id in the text box and click "Load"
 
 See an example running on heroku at {http://neovigator.herokuapp.com}[http://neovigator.herokuapp.com]
 
+=== Deploy to Heroku using Heroku button
+
+This button will walk you through the deployment just with a few clicks. It will add the free plan of the {GrapheneDB Neo4j add-on}[https://addons.heroku.com/graphenedb].
+
+{<img src="https://www.herokucdn.com/deploy/button.png">}[https://heroku.com/deploy]
+
+Done!
+
+=== Deploy to Heroku manually
+
+1. Check out a copy of the repo
+2. Create a new Heroku app: `$ heroku create`
+3. Add the {GrapheneDB Neo4j add-on}[https://addons.heroku.com/graphenedb]: `$ heroku addons:add graphenedb`
+4. Deploy the code: `$ git push heroku`
+
 === Credits
 
 This project is based on {Ask Ken}[http://askken.heroku.com] created by {Michael Aufreiter}[http://twitter.com/_mql].
