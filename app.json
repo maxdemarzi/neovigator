@@ -1,0 +1,7 @@
+{
+  "name": "neovigator-neo4j-demo",
+  "description": "Simple demo app using Neography and processing.js to navigate a Neo4j graph via its REST API. Deployment using GrapheneDB.",
+  "website": "https://github.com/maxdemarzi/neovigator",
+  "keywords": ["ruby", "neo4j", "processing.js"],
+  "addons": ["graphenedb:chalk"],
+}
