@@ -29,59 +29,57 @@ class Neovigator < Sinatra::Application
   end
 
   def create_graph
-    return if neo.execute_query("MATCH (n:Person) RETURN COUNT(n)")["data"].first.first > 1
+    return if neo.execute_query("MATCH (n:Organization) RETURN COUNT(n)")["data"].first.first > 1
 
-    guys = %w[Adrian Ben Carl Darrel Elliott Felix Gary Harley Ian Jason Keith Lance Marco Ned Otto Pablo Quentin Rocky Sheldon Ted Ulysses Val Warren Young Zack]
-    girls = %w[Alesha Bethany Carrie Darcey Emely Frida Gabrielle Helene Isabelle Jacqualine Katheryn Lora Megan Nathalie Olivia Patricia Rachael Shanon Tiffany Vannessa Wendie Xuan Yolonda Zofia]
-    cities = %w[Austin Baltimore Charlotte Chicago Dallas Detroit Miami Oakland Philadelphia Wichita]
-    attributes = %w[Able Accepting Adventurous Aggressive Ambitious Annoying Arrogant Articulate Athletic Awkward Boastful Bold Bossy Brave Bright Busy Calm Careful Careless Caring Cautious Cheerful Clever Clumsy Compassionate Complex Conceited Confident Considerate Cooperative Courageous Creative Curious Dainty Daring Dark Defiant Demanding Determined Devout Disagreeable Disgruntled Dreamer Eager Efficient Embarrassed Energetic Excited Expert Fair Faithful Fancy Fighter Forgiving Free Friendly Friendly Frustrated Fun-loving Funny Generous Gentle Giving Gorgeous Gracious Grouchy Handsome Happy Hard-working Helpful Honest Hopeful Humble Humorous Imaginative Impulsive Independent Intelligent Inventive Jealous Joyful Judgmental Keen Kind Knowledgeable Lazy Leader Light Light-hearted Likeable Lively Lovable Loving Loyal Manipulative Materialistic Mature Melancholy Merry Messy Mischievous Naive Neat Nervous Noisy Obnoxious Opinionated Organized Outgoing Passive Patient Patriotic Perfectionist Personable Pitiful Plain Pleasant Pleasing Poor Popular Pretty Prim Proper Proud Questioning Quiet Radical Realistic Rebellious Reflective Relaxed Reliable Religious Reserved Respectful Responsible Reverent Rich Rigid Rude Sad Sarcastic Self-confident Self-conscious Selfish Sensible Sensitive Serious Short Shy Silly Simple Simple-minded Smart Stable Strong Stubborn Studious Successful Tall Tantalizing Tender Tense Thoughtful Thrilling Timid Tireless Tolerant Tough Tricky Trusting Ugly Understanding Unhappy Unique Unlucky Unselfish Vain Warm Wild Willing Wise Witty Zany]
-  
-    cypher = "CREATE (n:Person {nodes}) RETURN  ID(n) AS id, n.name AS name"
-
+    organizations = %w[Farm KFC Pepsi]
+    products = %w[chicken_raw chicken_fried softdrinks]
+    locations = %w[New\ York\ City Iowa]
+      
+    cypher = "CREATE (n:Organization {nodes}) RETURN  ID(n) AS id, n.name AS name"
     nodes = []
-    guys.each { |n| nodes <<  {"name" => n, "gender" => "male"} }
-    girls.each { |n| nodes << {"name" => n, "gender" => "female"} }
-    users = hashify(neo.execute_query(cypher, {:nodes => nodes}))
+    organizations.each { |n| nodes <<  {"name" => n} }
+    organizations = hashify(neo.execute_query(cypher, {:nodes => nodes}))
 
+    cypher = "CREATE (n:Location {nodes}) RETURN  ID(n) AS id, n.name AS name"
     nodes = []
-    cities.each { |n| nodes << {"name" => n} }
-    cities = hashify(neo.execute_query(cypher, {:nodes => nodes}))
+    locations.each { |n| nodes << {"name" => n} }
+    locations = hashify(neo.execute_query(cypher, {:nodes => nodes}))
   
+    cypher = "CREATE (n:Product {nodes}) RETURN  ID(n) AS id, n.name AS name"
     nodes = []  
-    attributes.each { |n| nodes << {"name" => n} }
-    attributes = hashify(neo.execute_query(cypher, {:nodes => nodes}))
+    products.each { |n| nodes << {"name" => n} }
+    products = hashify(neo.execute_query(cypher, {:nodes => nodes}))
     
-    neo.execute_query("CREATE INDEX ON :Person(name)")
+    neo.execute_query("CREATE INDEX ON :Organization(name)")
+    neo.execute_query("CREATE INDEX ON :Location(name)")
+    neo.execute_query("CREATE INDEX ON :Product(name)")
   
+    #C reating relationships manually:
     commands = []
-    users.each do |user| 
-      commands << [:create_relationship, "lives_in", user["id"], cities.sample["id"], nil]    
-    end  
+    farm = organizations[0]
+    kfc = organizations[1]
+    pepsi = organizations[2]
+    nyc = locations[0]
+    iowa = locations[1]
+    chicken_raw = products[0]
+    chicken_fried = products[1]
+    softdrinks = products[2]
+    
+    commands << [:create_relationship, "located_in", pepsi["id"], nyc["id"], nil]    
+    commands << [:create_relationship, "located_in", kfc["id"], nyc["id"], nil]    
+    commands << [:create_relationship, "located_in", farm["id"], iowa["id"], nil]    
+    
+    commands << [:create_relationship, "makes", farm["id"], chicken_raw["id"], nil]    
+    commands << [:create_relationship, "makes", kfc["id"], chicken_fried["id"], nil]    
+    commands << [:create_relationship, "makes", pepsi["id"], softdrinks["id"], nil] 
+    
+    commands << [:create_relationship, "buys", kfc["id"], chicken_raw["id"], nil]        
+    commands << [:create_relationship, "buys", pepsi["id"], chicken_fried["id"], nil]        
+    commands << [:create_relationship, "buys", kfc["id"], softdrinks["id"], nil]                
+    commands << [:create_relationship, "buys", farm["id"], chicken_fried["id"], nil]        
+                
     neo.batch *commands
 
-    users.each do |user| 
-      commands = []
-      users.sample(3 + rand(10)).each do |att|
-        commands << [:create_relationship, "friends", user["id"], att["id"], nil] unless (att["id"] == user["id"])   
-      end
-      neo.batch *commands
-    end  
-
-    users.each do |user| 
-      commands = []
-      attributes.sample(10 + rand(10)).each do |att|
-        commands << [:create_relationship, "has", user["id"], att["id"], nil]    
-      end
-      neo.batch *commands
-    end  
-
-    users.each do |user| 
-      commands = []
-      attributes.sample(10 + rand(10)).each do |att|
-        commands << [:create_relationship, "wants", user["id"], att["id"], nil]    
-      end
-      neo.batch *commands
-    end 
   end
 
 helpers do
