@@ -20,7 +20,7 @@ class Neovigator < Sinatra::Application
     end
 
     def neo
-      @neo = Neography::Rest.new(ENV["GRAPHENEDB_URL"] || "http://localhost:7474")
+      @neo = Neography::Rest.new(ENV["GRAPHENEDB_URL"] || "http://neo4j:swordfish@localhost:7474")
     end
   end
   
