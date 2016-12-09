@@ -35,17 +35,17 @@ class Neovigator < Sinatra::Application
     products = %w[chicken_raw chicken_fried softdrinks]
     locations = %w[New\ York\ City Iowa]
       
-    cypher = "CREATE (n:Organization {nodes}) RETURN  ID(n) AS id, n.name AS name"
+    cypher = "CREATE (n:Organization) SET n = {nodes} RETURN  ID(n) AS id, n.name AS name"
     nodes = []
     organizations.each { |n| nodes <<  {"name" => n} }
     organizations = hashify(neo.execute_query(cypher, {:nodes => nodes}))
 
-    cypher = "CREATE (n:Location {nodes}) RETURN  ID(n) AS id, n.name AS name"
+    cypher = "CREATE (n:Location) SET n = {nodes} RETURN  ID(n) AS id, n.name AS name"
     nodes = []
     locations.each { |n| nodes << {"name" => n} }
     locations = hashify(neo.execute_query(cypher, {:nodes => nodes}))
   
-    cypher = "CREATE (n:Product {nodes}) RETURN  ID(n) AS id, n.name AS name"
+    cypher = "CREATE (n:Product) SET n = {nodes} RETURN  ID(n) AS id, n.name AS name"
     nodes = []  
     products.each { |n| nodes << {"name" => n} }
     products = hashify(neo.execute_query(cypher, {:nodes => nodes}))
